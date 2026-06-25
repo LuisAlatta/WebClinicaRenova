@@ -61,16 +61,15 @@ export async function registrarRutas(app: FastifyInstance) {
   app.post('/examenes', { preHandler: requireAuth(['MEDICO']) }, async (req: any, reply) => {
     const b = req.body as any;
 
-    if (!b.paciente_id || !b.tipo_examen) {
-      return reply.code(422).send({ ok: false, error: 'Paciente y tipo de examen son requeridos' });
+    if (!b.paciente_id || !b.medico_id || !b.tipo_examen) {
+      return reply.code(422).send({ ok: false, error: 'Paciente, medico y tipo de examen son requeridos' });
     }
     const prioridad = b.prioridad === 'URGENTE' ? 'URGENTE' : 'NORMAL';
-    const medico_id = b.medico_id || req.usuario?.sub; // si no se especifica, el medico autenticado
 
     const rows = await query(
       `INSERT INTO laboratorio.solicitudes_examen (paciente_id, medico_id, tipo_examen, prioridad)
        VALUES ($1, $2, $3, $4) RETURNING *`,
-      [b.paciente_id, medico_id, b.tipo_examen, prioridad],
+      [b.paciente_id, b.medico_id, b.tipo_examen, prioridad],
     );
     const solicitud = rows[0];
 
