@@ -1,0 +1,31 @@
+{
+  "name": "renova-soa",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Sistema de Gestión Clínica RENOVA - SOA Ligero (REST + API Gateway)",
+  "workspaces": [
+    "packages/*",
+    "apps/gateway",
+    "apps/web",
+    "apps/services/*"
+  ],
+  "scripts": {
+    "infra:up": "docker compose up -d postgres mongo redis",
+    "infra:down": "docker compose down",
+    "infra:reset": "docker compose down -v && docker compose up -d postgres mongo redis",
+    "up": "docker compose up --build",
+    "down": "docker compose down",
+    "dev:gateway": "npm run dev -w apps/gateway",
+    "dev:web": "npm run dev -w apps/web",
+    "build": "npm run build --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "typescript": "^5.5.4",
+    "tsx": "^4.16.2",
+    "@types/node": "^20.14.0"
+  }
+}

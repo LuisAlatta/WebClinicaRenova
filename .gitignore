@@ -1,0 +1,23 @@
+node_modules/
+dist/
+.next/
+out/
+build/
+coverage/
+*.log
+npm-debug.log*
+
+# Env
+.env
+.env.local
+.env.*.local
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Docker volumes locales
+infra/postgres/data/
+infra/mongo/data/

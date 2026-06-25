@@ -1,0 +1,125 @@
+services:
+  # ===================== INFRAESTRUCTURA =====================
+  postgres:
+    image: postgres:16-alpine
+    container_name: renova_postgres
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-renova}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-renova123}
+      POSTGRES_DB: ${POSTGRES_DB:-renova}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      # Los .sql de esta carpeta se ejecutan AUTOMÁTICAMENTE en orden alfabético
+      # la primera vez que se crea la base de datos => datos listos sin pasos manuales.
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-renova}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  mongo:
+    image: mongo:7
+    container_name: renova_mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodata:/data/db
+      - ./infra/mongo/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    container_name: renova_redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # ===================== API GATEWAY =====================
+  gateway:
+    build: { context: ., dockerfile: apps/gateway/Dockerfile }
+    container_name: renova_gateway
+    env_file: .env
+    environment:
+      GATEWAY_PORT: 8080
+      AUTH_URL: http://auth:3001
+      PACIENTES_URL: http://pacientes:3002
+      CITAS_URL: http://citas:3003
+      HOSPITALIZACION_URL: http://hospitalizacion:3004
+      FARMACIA_URL: http://farmacia:3005
+      LABORATORIO_URL: http://laboratorio:3006
+      FACTURACION_URL: http://facturacion:3007
+      NOTIFICACIONES_URL: http://notificaciones:3008
+      REPORTES_URL: http://reportes:3009
+      REDIS_HOST: redis
+    ports: ["8080:8080"]
+    depends_on: [auth, pacientes, citas, hospitalizacion, farmacia, laboratorio, facturacion, notificaciones, reportes]
+
+  # ===================== SERVICIOS DE DOMINIO =====================
+  auth:
+    build: { context: ., dockerfile: apps/services/auth/Dockerfile }
+    env_file: .env
+    environment: { PORT: 3001, POSTGRES_HOST: postgres, MONGO_URI: mongodb://mongo:27017, REDIS_HOST: redis }
+    depends_on: { postgres: { condition: service_healthy }, mongo: { condition: service_healthy } }
+
+  pacientes:
+    build: { context: ., dockerfile: apps/services/pacientes/Dockerfile }
+    env_file: .env
+    environment: { PORT: 3002, POSTGRES_HOST: postgres, MONGO_URI: mongodb://mongo:27017 }
+    depends_on: { postgres: { condition: service_healthy }, mongo: { condition: service_healthy } }
+
+  citas:
+    build: { context: ., dockerfile: apps/services/citas/Dockerfile }
+    env_file: .env
+    environment: { PORT: 3003, POSTGRES_HOST: postgres }
+    depends_on: { postgres: { condition: service_healthy } }
+
+  hospitalizacion:
+    build: { context: ., dockerfile: apps/services/hospitalizacion/Dockerfile }
+    env_file: .env
+    environment: { PORT: 3004, POSTGRES_HOST: postgres }
+    depends_on: { postgres: { condition: service_healthy } }
+
+  farmacia:
+    build: { context: ., dockerfile: apps/services/farmacia/Dockerfile }
+    env_file: .env
+    environment: { PORT: 3005, POSTGRES_HOST: postgres, REDIS_HOST: redis }
+    depends_on: { postgres: { condition: service_healthy } }
+
+  laboratorio:
+    build: { context: ., dockerfile: apps/services/laboratorio/Dockerfile }
+    env_file: .env
+    environment: { PORT: 3006, POSTGRES_HOST: postgres, MONGO_URI: mongodb://mongo:27017, REDIS_HOST: redis }
+    depends_on: { postgres: { condition: service_healthy }, mongo: { condition: service_healthy } }
+
+  facturacion:
+    build: { context: ., dockerfile: apps/services/facturacion/Dockerfile }
+    env_file: .env
+    environment: { PORT: 3007, POSTGRES_HOST: postgres }
+    depends_on: { postgres: { condition: service_healthy } }
+
+  notificaciones:
+    build: { context: ., dockerfile: apps/services/notificaciones/Dockerfile }
+    env_file: .env
+    environment: { PORT: 3008, REDIS_HOST: redis }
+    depends_on: { redis: { condition: service_healthy } }
+
+  reportes:
+    build: { context: ., dockerfile: apps/services/reportes/Dockerfile }
+    env_file: .env
+    environment: { PORT: 3009, POSTGRES_HOST: postgres, REDIS_HOST: redis }
+    depends_on: { postgres: { condition: service_healthy } }
+
+volumes:
+  pgdata:
+  mongodata:
