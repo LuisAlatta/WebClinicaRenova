@@ -9,7 +9,7 @@ import proxy from '@fastify/http-proxy';
  * La autenticación JWT/RBAC se aplica en cada servicio vía @renova/auth-jwt (lógica compartida).
  */
 const app = Fastify({ logger: true });
-const PORT = Number(process.env.GATEWAY_PORT || 8080);
+const PORT = Number(process.env.GATEWAY_PORT || 4000);
 
 await app.register(cors, { origin: true });
 await app.register(rateLimit, { max: 200, timeWindow: '1 minute' });

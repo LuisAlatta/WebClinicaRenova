@@ -51,7 +51,7 @@ services:
     container_name: renova_gateway
     env_file: .env
     environment:
-      GATEWAY_PORT: 8080
+      GATEWAY_PORT: 4000
       AUTH_URL: http://auth:3001
       PACIENTES_URL: http://pacientes:3002
       CITAS_URL: http://citas:3003
@@ -62,7 +62,7 @@ services:
       NOTIFICACIONES_URL: http://notificaciones:3008
       REPORTES_URL: http://reportes:3009
       REDIS_HOST: redis
-    ports: ["8080:8080"]
+    ports: ["4000:4000"]
     depends_on: [auth, pacientes, citas, hospitalizacion, farmacia, laboratorio, facturacion, notificaciones, reportes]
 
   # ===================== SERVICIOS DE DOMINIO =====================

@@ -1,5 +1,5 @@
 // Cliente HTTP central: agrega el token JWT y apunta al API Gateway.
-const BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+const BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 export function getToken(): string | null {
   if (typeof window === 'undefined') return null;
