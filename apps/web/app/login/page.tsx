@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, setSesion } from '../../lib/api';
+import { LogoFull } from '../../components/Logo';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -30,25 +31,28 @@ export default function LoginPage() {
 
   return (
     <div className="login-wrap">
+      <LogoFull />
       <form className="card login-card" onSubmit={onSubmit}>
-        <h1 style={{ margin: 0, fontSize: '1.6rem' }}>
-          RENOVA <span style={{ color: 'var(--accent)' }}>·</span> Clínica
-        </h1>
-        <p className="sub" style={{ marginBottom: '1.25rem' }}>Ingresa con tu cuenta</p>
+        <h2>LOGIN</h2>
 
-        <label style={{ fontSize: '.85rem', fontWeight: 600 }}>Correo</label>
-        <input className="input" value={email} onChange={(e) => setEmail(e.target.value)} style={{ margin: '.3rem 0 .9rem' }} />
+        <div className="login-field">
+          <label className="label">Usuario</label>
+          <input className="input" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="correo@renova.pe" />
+        </div>
+        <div className="login-field">
+          <label className="label">Contraseña</label>
+          <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} />
+        </div>
 
-        <label style={{ fontSize: '.85rem', fontWeight: 600 }}>Contraseña</label>
-        <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} style={{ margin: '.3rem 0 1rem' }} />
+        {error && <p style={{ color: 'var(--danger)', fontSize: '.9rem', textAlign: 'center' }}>{error}</p>}
 
-        {error && <p style={{ color: 'var(--danger)', fontSize: '.9rem' }}>{error}</p>}
-
-        <button className="btn" style={{ width: '100%', justifyContent: 'center' }} disabled={cargando}>
-          {cargando ? 'Ingresando...' : 'Iniciar sesión'}
-        </button>
-
-        <p className="sub" style={{ marginTop: '1rem', fontSize: '.8rem' }}>
+        <div className="login-actions">
+          <a href="#">¿Olvidaste tu usuario o contraseña?</a>
+          <button className="btn btn-outline" disabled={cargando}>
+            {cargando ? 'Ingresando...' : 'Login'}
+          </button>
+        </div>
+        <p style={{ textAlign: 'center', color: 'var(--muted)', fontSize: '.8rem', marginTop: '1.5rem' }}>
           Demo: admin@renova.pe / renova123
         </p>
       </form>
