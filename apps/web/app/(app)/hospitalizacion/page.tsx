@@ -1,8 +1,11 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 
-/* HP0001 - Tipos principales del módulo */
+/* HP0001 - Configuración de conexión backend */
+const API_HOSPITALIZACION = 'http://localhost:3004';
+
+/* HP0002 - Tipos principales del módulo */
 type EstadoPaciente =
   | 'INTERNADO'
   | 'ALTA'
@@ -11,6 +14,10 @@ type EstadoPaciente =
 
 type Paciente = {
   id: number;
+  serverId?: string;
+  pacienteId?: string;
+  medicoId?: string;
+  camaId?: number;
   dni: string;
   nombres: string;
   edad: string;
@@ -29,13 +36,40 @@ type Paciente = {
 };
 
 type Cuarto = {
+  backendId?: number;
   cuarto: string;
   pacientes: number;
   tipo: string;
   estado: 'LIBRE' | 'OCUPADO';
 };
 
-/* HP0002 - Datos simulados: responsables ficticios */
+type BackendCama = {
+  id: number;
+  codigo: string;
+  piso: number | null;
+  ocupada: boolean;
+};
+
+type BackendInternamiento = {
+  id: string;
+  paciente_id: string;
+  dni: string;
+  nombres: string;
+  apellidos: string;
+  medico_responsable_id: string;
+  medico_nombres: string;
+  medico_apellidos: string;
+  cama_id: number;
+  cama_codigo: string;
+  piso: number | null;
+  fecha_ingreso: string;
+  fecha_egreso: string | null;
+  motivo_ingreso: string | null;
+  resumen_alta: string | null;
+  estado: string;
+};
+
+/* HP0003 - Responsables ficticios para demo */
 const responsables = [
   'Lic. Andrea Vargas',
   'Lic. Karina Ponce',
@@ -47,49 +81,57 @@ const responsables = [
   'Tec. Kevin Salazar',
 ];
 
-/* HP0003 - Base simulada de pacientes desde admisión */
+/* HP0004 - Pacientes simulados, alineados a IDs reales de la BD */
 const pacientesBase = [
   {
-    dni: '73124568',
-    nombres: 'Andrea Salazar Rojas',
-    edad: '34',
-    doctor: 'Dr. Alejandro Mendoza',
+    pacienteId: '8e741c8a-7760-45b3-8dab-a5bb71d7faed',
+    dni: '72345678',
+    nombres: 'Carlos Mamani Flores',
+    edad: '46',
+    medicoId: '2b13f0f3-95a8-4c4c-849b-5f2e5411be6a',
+    doctor: 'Dr. Yordy Neyra',
     procedimiento: 'Colecistectomía laparoscópica',
     tipo: 'HOSPITALARIA',
   },
   {
-    dni: '45671239',
-    nombres: 'Miguel Torres Campos',
-    edad: '58',
-    doctor: 'Dra. Patricia Ríos',
+    pacienteId: '6daa49df-2bc2-42b9-9566-824a52dd66f7',
+    dni: '45678912',
+    nombres: 'María Huanca Ccama',
+    edad: '34',
+    medicoId: '7fdff442-6980-450f-825e-5470f6de77ba',
+    doctor: 'Dr. Sebastian Ticlavilca',
     procedimiento: 'Hernioplastía inguinal',
     tipo: 'HOSPITALARIA',
   },
   {
-    dni: '70456312',
-    nombres: 'Valeria Paredes León',
-    edad: '41',
-    doctor: 'Dr. Ricardo Salinas',
+    pacienteId: '333c428d-b2b8-4609-8f06-5dbc788b9d71',
+    dni: '60123456',
+    nombres: 'Pedro Condori Apaza',
+    edad: '52',
+    medicoId: '7201390d-86e1-4d16-8503-6d26ab51864e',
+    doctor: 'Dra. Ana Quispe',
     procedimiento: 'Endoscopía digestiva',
     tipo: 'AMBULATORIA',
   },
   {
-    dni: '61987453',
-    nombres: 'Carlos Medina Huamán',
+    pacienteId: 'd85fa3d5-9d62-4714-89b8-7e6de153aacc',
+    dni: '41239876',
+    nombres: 'Lucía Vargas Ríos',
     edad: '29',
-    doctor: 'Dra. Verónica Aguilar',
+    medicoId: '7201390d-86e1-4d16-8503-6d26ab51864e',
+    doctor: 'Dra. Ana Quispe',
     procedimiento: 'Tratamiento médico',
     tipo: 'TRATAMIENTO',
   },
 ];
 
-/* HP0004 - Pacientes iniciales ficticios */
+/* HP0005 - Datos visuales de respaldo si internamientos BD está vacío */
 const pacientesIniciales: Paciente[] = [
   {
     id: 1,
     ...pacientesBase[0],
-    habitacion: '402',
-    cama: '402A',
+    habitacion: '201',
+    cama: 'CAMA-201',
     fechaIngreso: '24/06/2026 09:54',
     fechaAlta: '',
     estado: 'INTERNADO',
@@ -101,8 +143,8 @@ const pacientesIniciales: Paciente[] = [
   {
     id: 2,
     ...pacientesBase[1],
-    habitacion: '409',
-    cama: '409A',
+    habitacion: '202',
+    cama: 'CAMA-202',
     fechaIngreso: '24/06/2026 10:27',
     fechaAlta: '',
     estado: 'INTERNADO',
@@ -113,28 +155,20 @@ const pacientesIniciales: Paciente[] = [
   },
 ];
 
-/* HP0005 - Cuartos iniciales ficticios */
+/* HP0006 - Cuartos de respaldo si falla backend */
 const cuartosIniciales: Cuarto[] = [
-  { cuarto: '401', pacientes: 0, tipo: 'INDIVIDUAL', estado: 'LIBRE' },
-  { cuarto: '402', pacientes: 1, tipo: 'INDIVIDUAL', estado: 'OCUPADO' },
-  { cuarto: '403', pacientes: 0, tipo: 'INDIVIDUAL', estado: 'LIBRE' },
-  { cuarto: '404', pacientes: 0, tipo: 'INDIVIDUAL', estado: 'LIBRE' },
-  { cuarto: '405', pacientes: 0, tipo: 'INDIVIDUAL', estado: 'LIBRE' },
-  { cuarto: '406', pacientes: 0, tipo: 'INDIVIDUAL', estado: 'LIBRE' },
-  { cuarto: '407', pacientes: 0, tipo: 'INDIVIDUAL', estado: 'LIBRE' },
-  { cuarto: '408', pacientes: 0, tipo: 'INDIVIDUAL', estado: 'LIBRE' },
-  { cuarto: '409', pacientes: 1, tipo: 'INDIVIDUAL', estado: 'OCUPADO' },
-  { cuarto: '301', pacientes: 0, tipo: 'SALA', estado: 'LIBRE' },
-  { cuarto: '302', pacientes: 0, tipo: 'SALA', estado: 'LIBRE' },
-  { cuarto: '201', pacientes: 0, tipo: 'CONSULTORIO', estado: 'LIBRE' },
-  { cuarto: '202', pacientes: 0, tipo: 'CONSULTORIO', estado: 'LIBRE' },
-  { cuarto: 'R', pacientes: 0, tipo: 'RECUPERACIÓN', estado: 'LIBRE' },
+  { cuarto: '201', pacientes: 0, tipo: 'PISO 2', estado: 'LIBRE' },
+  { cuarto: '202', pacientes: 0, tipo: 'PISO 2', estado: 'LIBRE' },
+  { cuarto: '301', pacientes: 0, tipo: 'PISO 3', estado: 'LIBRE' },
+  { cuarto: '302', pacientes: 0, tipo: 'PISO 3', estado: 'LIBRE' },
 ];
 
 export default function HospitalizacionPage() {
-  /* HP0006 - Estados principales */
+  /* HP0007 - Estados principales */
   const [pacientes, setPacientes] = useState<Paciente[]>(pacientesIniciales);
   const [cuartos, setCuartos] = useState<Cuarto[]>(cuartosIniciales);
+  const [cargandoBackend, setCargandoBackend] = useState(false);
+  const [backendActivo, setBackendActivo] = useState(false);
 
   const [modalIngreso, setModalIngreso] = useState(false);
   const [modalAccion, setModalAccion] = useState(false);
@@ -144,7 +178,7 @@ export default function HospitalizacionPage() {
   const [pacienteSeleccionado, setPacienteSeleccionado] =
     useState<Paciente | null>(null);
 
-  /* HP0007 - Formulario de ingreso */
+  /* HP0008 - Formulario de ingreso */
   const [form, setForm] = useState({
     dni: '',
     nombres: '',
@@ -156,9 +190,12 @@ export default function HospitalizacionPage() {
     cama: '',
     observacion: '',
     responsableIngreso: responsables[0],
+    pacienteId: '',
+    medicoId: '',
+    camaId: '',
   });
 
-  /* HP0008 - Formulario de acciones */
+  /* HP0009 - Formulario de acciones */
   const [accion, setAccion] = useState({
     tipo: '',
     motivo: '',
@@ -167,7 +204,7 @@ export default function HospitalizacionPage() {
     responsable: responsables[0],
   });
 
-  /* HP0009 - Formulario agregar/quitar cuarto */
+  /* HP0010 - Gestión de cuartos visuales */
   const [nuevoCuarto, setNuevoCuarto] = useState({
     cuarto: '',
     tipo: 'INDIVIDUAL',
@@ -175,7 +212,86 @@ export default function HospitalizacionPage() {
 
   const [cuartoAQuitar, setCuartoAQuitar] = useState('');
 
-  /* HP0010 - Fecha automática */
+  /* HP0011 - Carga inicial desde backend */
+  useEffect(() => {
+    cargarDatosBackend();
+  }, []);
+
+  async function cargarDatosBackend() {
+    setCargandoBackend(true);
+
+    try {
+      await Promise.all([cargarCamasBackend(), cargarInternamientosBackend()]);
+      setBackendActivo(true);
+    } catch {
+      setBackendActivo(false);
+    } finally {
+      setCargandoBackend(false);
+    }
+  }
+
+  /* HP0012 - GET /camas desde PostgreSQL */
+  async function cargarCamasBackend() {
+    const res = await fetch(`${API_HOSPITALIZACION}/camas`);
+    const json = await res.json();
+
+    if (!json.ok) throw new Error('No se pudo cargar camas.');
+
+    const camasConvertidas: Cuarto[] = json.data.map((cama: BackendCama) => {
+      const cuarto = cama.codigo.replace('CAMA-', '');
+
+      return {
+        backendId: cama.id,
+        cuarto,
+        pacientes: cama.ocupada ? 1 : 0,
+        tipo: cama.piso ? `PISO ${cama.piso}` : 'SIN PISO',
+        estado: cama.ocupada ? 'OCUPADO' : 'LIBRE',
+      };
+    });
+
+    setCuartos(camasConvertidas);
+  }
+
+  /* HP0013 - GET / internamientos desde PostgreSQL */
+  async function cargarInternamientosBackend() {
+    const res = await fetch(`${API_HOSPITALIZACION}/`);
+    const json = await res.json();
+
+    if (!json.ok) throw new Error('No se pudo cargar internamientos.');
+
+    if (!json.data || json.data.length === 0) return;
+
+    const convertidos: Paciente[] = json.data.map(
+      (item: BackendInternamiento, index: number) => ({
+        id: index + 1,
+        serverId: item.id,
+        pacienteId: item.paciente_id,
+        medicoId: item.medico_responsable_id,
+        camaId: item.cama_id,
+        dni: item.dni,
+        nombres: `${item.nombres} ${item.apellidos}`,
+        edad: '-',
+        doctor: `${item.medico_nombres} ${item.medico_apellidos}`,
+        procedimiento: item.motivo_ingreso || 'Internamiento hospitalario',
+        tipo: 'HOSPITALARIA',
+        habitacion: item.cama_codigo?.replace('CAMA-', '') || '-',
+        cama: item.cama_codigo || '-',
+        fechaIngreso: formatearFecha(item.fecha_ingreso),
+        fechaAlta: item.fecha_egreso ? formatearFecha(item.fecha_egreso) : '',
+        estado: convertirEstadoBackend(item.estado),
+        observacion: item.motivo_ingreso || '',
+        responsableIngreso: 'Sistema RENOVA',
+        responsableAlta: item.fecha_egreso ? 'Sistema RENOVA' : '',
+        detalle: `Internamiento registrado en PostgreSQL. Estado: ${item.estado}. ${
+          item.resumen_alta ? `Resumen alta: ${item.resumen_alta}` : ''
+        }`,
+      }),
+    );
+
+    setPacientes(convertidos);
+  }
+
+  /* HP0014 - Utilidades generales */
   function fechaActual() {
     return new Date().toLocaleString('es-PE', {
       day: '2-digit',
@@ -186,7 +302,42 @@ export default function HospitalizacionPage() {
     });
   }
 
-  /* HP0011 - Buscar paciente por DNI simulado desde admisión */
+  function formatearFecha(fecha: string) {
+    return new Date(fecha).toLocaleString('es-PE', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }
+
+  function convertirEstadoBackend(estado: string): EstadoPaciente {
+    if (estado === 'ALTA') return 'ALTA';
+    if (estado === 'ALTA_VOLUNTARIA') return 'ALTA VOLUNTARIA';
+    if (estado === 'REFERIDO_EMERGENCIA') return 'REFERIDO EMERGENCIA';
+    return 'INTERNADO';
+  }
+
+  function convertirEstadoFrontend(estado: string) {
+    if (estado === 'ALTA VOLUNTARIA') return 'ALTA_VOLUNTARIA';
+    if (estado === 'REFERIDO EMERGENCIA') return 'REFERIDO_EMERGENCIA';
+    if (estado === 'ALTA') return 'ALTA';
+    return 'ALTA';
+  }
+
+  function obtenerToken() {
+    if (typeof window === 'undefined') return '';
+
+    return (
+      localStorage.getItem('token') ||
+      localStorage.getItem('accessToken') ||
+      localStorage.getItem('renova_token') ||
+      ''
+    );
+  }
+
+  /* HP0015 - Buscar paciente por DNI */
   function buscarPacientePorDni() {
     const encontrado = pacientesBase.find((p) => p.dni === form.dni);
 
@@ -202,10 +353,12 @@ export default function HospitalizacionPage() {
       doctor: encontrado.doctor,
       procedimiento: encontrado.procedimiento,
       tipo: encontrado.tipo,
+      pacienteId: encontrado.pacienteId,
+      medicoId: encontrado.medicoId,
     });
   }
 
-  /* HP0012 - Actualiza ocupación del cuarto */
+  /* HP0016 - Actualización visual de ocupación */
   function ajustarCuarto(cuarto: string, cambio: number) {
     setCuartos((actual) =>
       actual.map((c) => {
@@ -222,8 +375,8 @@ export default function HospitalizacionPage() {
     );
   }
 
-  /* HP0013 - Registrar ingreso hospitalario */
-  function agregarPaciente() {
+  /* HP0017 - Registrar ingreso: intenta backend y mantiene demo visual */
+  async function agregarPaciente() {
     if (!form.dni || !form.nombres || !form.habitacion || !form.cama) {
       alert('Complete DNI, nombres, habitación y cama.');
       return;
@@ -236,8 +389,45 @@ export default function HospitalizacionPage() {
       return;
     }
 
+    const camaSeleccionada = cuartos.find((c) => c.cuarto === form.habitacion);
+    const token = obtenerToken();
+
+    if (token && form.pacienteId && form.medicoId && camaSeleccionada?.backendId) {
+      try {
+        const res = await fetch(`${API_HOSPITALIZACION}/`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            paciente_id: form.pacienteId,
+            medico_responsable_id: form.medicoId,
+            cama_id: camaSeleccionada.backendId,
+            motivo_ingreso:
+              form.observacion || form.procedimiento || 'Ingreso hospitalario',
+          }),
+        });
+
+        const json = await res.json();
+
+        if (!json.ok) {
+          alert(json.error || 'No se pudo registrar en backend. Se registrará visualmente.');
+        } else {
+          await cargarDatosBackend();
+          limpiarFormularioIngreso();
+          setModalIngreso(false);
+          return;
+        }
+      } catch {
+        alert('No se pudo conectar al backend. Se registrará visualmente.');
+      }
+    }
+
     const nuevo: Paciente = {
       id: pacientes.length + 1,
+      pacienteId: form.pacienteId,
+      medicoId: form.medicoId,
       dni: form.dni,
       nombres: form.nombres,
       edad: form.edad,
@@ -259,7 +449,11 @@ export default function HospitalizacionPage() {
 
     setPacientes([...pacientes, nuevo]);
     ajustarCuarto(form.habitacion, 1);
+    limpiarFormularioIngreso();
+    setModalIngreso(false);
+  }
 
+  function limpiarFormularioIngreso() {
     setForm({
       dni: '',
       nombres: '',
@@ -271,12 +465,13 @@ export default function HospitalizacionPage() {
       cama: '',
       observacion: '',
       responsableIngreso: responsables[0],
+      pacienteId: '',
+      medicoId: '',
+      camaId: '',
     });
-
-    setModalIngreso(false);
   }
 
-  /* HP0014 - Abrir acción clínica */
+  /* HP0018 - Abrir acción clínica */
   function abrirAccion(paciente: Paciente, tipoAccion: string) {
     setPacienteSeleccionado(paciente);
     setAccion({
@@ -289,8 +484,8 @@ export default function HospitalizacionPage() {
     setModalAccion(true);
   }
 
-  /* HP0015 - Confirmar alta, traslado, alta voluntaria o referencia */
-  function confirmarAccion() {
+  /* HP0019 - Confirmar acción: intenta PATCH backend si tiene serverId */
+  async function confirmarAccion() {
     if (!pacienteSeleccionado) return;
 
     if (!accion.motivo) {
@@ -314,6 +509,50 @@ export default function HospitalizacionPage() {
         return;
       }
     }
+
+    const token = obtenerToken();
+
+    if (
+      pacienteSeleccionado.serverId &&
+      token &&
+      accion.tipo !== 'TRASLADO'
+    ) {
+      try {
+        const res = await fetch(
+          `${API_HOSPITALIZACION}/${pacienteSeleccionado.serverId}/egreso`,
+          {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              resumen_alta: accion.motivo,
+              estado: convertirEstadoFrontend(accion.tipo),
+            }),
+          },
+        );
+
+        const json = await res.json();
+
+        if (json.ok) {
+          await cargarDatosBackend();
+          setModalAccion(false);
+          return;
+        }
+
+        alert(json.error || 'No se pudo registrar acción en backend.');
+      } catch {
+        alert('No se pudo conectar al backend. Se aplicará visualmente.');
+      }
+    }
+
+    aplicarAccionVisual();
+  }
+
+  /* HP0020 - Aplica acción visual si no hay token o no es registro backend */
+  function aplicarAccionVisual() {
+    if (!pacienteSeleccionado) return;
 
     const fecha = fechaActual();
 
@@ -374,13 +613,12 @@ export default function HospitalizacionPage() {
     setModalAccion(false);
   }
 
-  /* HP0016 - Ver detalle del internamiento */
+  /* HP0021 - Detalle y gestión visual de cuartos */
   function verDetalle(paciente: Paciente) {
     setPacienteSeleccionado(paciente);
     setModalDetalle(true);
   }
 
-  /* HP0017 - Agregar cuarto con bloqueo de duplicados */
   function agregarCuarto() {
     const cuartoLimpio = nuevoCuarto.cuarto.trim().toUpperCase();
 
@@ -411,7 +649,6 @@ export default function HospitalizacionPage() {
     setNuevoCuarto({ cuarto: '', tipo: 'INDIVIDUAL' });
   }
 
-  /* HP0018 - Quitar cuarto desde selector */
   function quitarCuarto() {
     if (!cuartoAQuitar) {
       alert('Seleccione un cuarto para quitar.');
@@ -433,7 +670,7 @@ export default function HospitalizacionPage() {
 
   return (
     <div style={page}>
-      {/* HP0019 - Animaciones y efectos visuales */}
+      {/* HP0022 - Animaciones */}
       <style>
         {`
           @keyframes aparecerModal {
@@ -452,38 +689,20 @@ export default function HospitalizacionPage() {
             100% { box-shadow: 0 0 0 0 rgba(0, 152, 155, 0); }
           }
 
-          button {
-            transition: all .18s ease;
-          }
-
-          button:hover {
-            transform: translateY(-1px);
-            filter: brightness(.97);
-          }
-
-          tbody tr {
-            transition: background .18s ease, transform .18s ease;
-          }
-
-          tbody tr:hover {
-            background: #eef8f4;
-          }
-
-          .hp-card {
-            animation: subirSuave .25s ease-out;
-          }
-
-          .hp-pulse {
-            animation: pulso 1.6s infinite;
-          }
+          button { transition: all .18s ease; }
+          button:hover { transform: translateY(-1px); filter: brightness(.97); }
+          tbody tr { transition: background .18s ease, transform .18s ease; }
+          tbody tr:hover { background: #eef8f4; }
+          .hp-card { animation: subirSuave .25s ease-out; }
+          .hp-pulse { animation: pulso 1.6s infinite; }
         `}
       </style>
 
-      {/* HP0020 - Encabezado */}
+      {/* HP0023 - Encabezado */}
       <h2 style={title}>Hospitalización</h2>
       <p style={subtitle}>Buen día, nameUser</p>
 
-      <div style={{ display: 'flex', gap: 10 }}>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
         <button
           className="hp-pulse"
           style={primaryButton}
@@ -495,9 +714,21 @@ export default function HospitalizacionPage() {
         <button style={secondaryButton} onClick={() => setModalCuarto(true)}>
           🛏️ Agregar / quitar cuarto
         </button>
+
+        <button style={refreshButton} onClick={cargarDatosBackend}>
+          🔄 Actualizar BD
+        </button>
+
+        <span style={backendBadge(backendActivo)}>
+          {cargandoBackend
+            ? 'Conectando...'
+            : backendActivo
+              ? 'BD conectada'
+              : 'Modo demo'}
+        </span>
       </div>
 
-      {/* HP0021 - Tabla principal de pacientes */}
+      {/* HP0024 - Tabla principal */}
       <div className="hp-card">
         <table style={mainTable}>
           <thead>
@@ -520,7 +751,7 @@ export default function HospitalizacionPage() {
           </thead>
           <tbody>
             {pacientes.map((p) => (
-              <tr key={p.id}>
+              <tr key={`${p.id}-${p.serverId || p.dni}`}>
                 <td style={td}>{p.dni}</td>
                 <td style={td}>{p.nombres}</td>
                 <td style={td}>{p.edad}</td>
@@ -572,7 +803,7 @@ export default function HospitalizacionPage() {
         </table>
       </div>
 
-      {/* HP0022 - Disponibilidad de cuartos */}
+      {/* HP0025 - Tabla de cuartos */}
       <h3 style={{ marginTop: 28, color: '#162b5f' }}>
         Disponibilidad de cuartos
       </h3>
@@ -608,7 +839,7 @@ export default function HospitalizacionPage() {
         </table>
       </div>
 
-      {/* HP0023 - Modal ingreso paciente */}
+      {/* HP0026 - Modal ingreso */}
       {modalIngreso && (
         <Modal titulo="🏥 Registrar ingreso hospitalario">
           <div style={{ display: 'flex', gap: 8 }}>
@@ -664,20 +895,30 @@ export default function HospitalizacionPage() {
             <option>RE INGRESO</option>
           </select>
 
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input
-              style={input}
-              placeholder="Habitación"
-              value={form.habitacion}
-              onChange={(e) => setForm({ ...form, habitacion: e.target.value })}
-            />
-            <input
-              style={input}
-              placeholder="Cama"
-              value={form.cama}
-              onChange={(e) => setForm({ ...form, cama: e.target.value })}
-            />
-          </div>
+          <select
+            style={input}
+            value={form.habitacion}
+            onChange={(e) => {
+              const seleccionado = cuartos.find((c) => c.cuarto === e.target.value);
+              setForm({
+                ...form,
+                habitacion: e.target.value,
+                cama: seleccionado ? `CAMA-${seleccionado.cuarto}` : '',
+                camaId: seleccionado?.backendId ? String(seleccionado.backendId) : '',
+              });
+            }}
+          >
+            <option value="">Seleccione habitación/cama libre</option>
+            {cuartos
+              .filter((c) => c.estado === 'LIBRE')
+              .map((c) => (
+                <option key={c.cuarto} value={c.cuarto}>
+                  {c.cuarto} - {c.tipo}
+                </option>
+              ))}
+          </select>
+
+          <input style={input} placeholder="Cama" value={form.cama} readOnly />
 
           <select
             style={input}
@@ -693,7 +934,7 @@ export default function HospitalizacionPage() {
 
           <textarea
             style={input}
-            placeholder="Observación de ingreso"
+            placeholder="Observación de ingreso / motivo"
             value={form.observacion}
             onChange={(e) => setForm({ ...form, observacion: e.target.value })}
           />
@@ -707,7 +948,7 @@ export default function HospitalizacionPage() {
         </Modal>
       )}
 
-      {/* HP0024 - Modal acciones clínicas */}
+      {/* HP0027 - Modal acciones */}
       {modalAccion && pacienteSeleccionado && (
         <Modal titulo={`Registrar acción: ${accion.tipo}`}>
           <p style={{ fontSize: 13 }}>
@@ -716,21 +957,33 @@ export default function HospitalizacionPage() {
 
           {accion.tipo === 'TRASLADO' && (
             <div style={{ display: 'flex', gap: 8 }}>
-              <input
+              <select
                 style={input}
-                placeholder="Nueva habitación"
                 value={accion.nuevaHabitacion}
-                onChange={(e) =>
-                  setAccion({ ...accion, nuevaHabitacion: e.target.value })
-                }
-              />
+                onChange={(e) => {
+                  const seleccionado = cuartos.find((c) => c.cuarto === e.target.value);
+                  setAccion({
+                    ...accion,
+                    nuevaHabitacion: e.target.value,
+                    nuevaCama: seleccionado ? `CAMA-${seleccionado.cuarto}` : '',
+                  });
+                }}
+              >
+                <option value="">Seleccione nueva habitación libre</option>
+                {cuartos
+                  .filter((c) => c.estado === 'LIBRE')
+                  .map((c) => (
+                    <option key={c.cuarto} value={c.cuarto}>
+                      {c.cuarto} - {c.tipo}
+                    </option>
+                  ))}
+              </select>
+
               <input
                 style={input}
                 placeholder="Nueva cama"
                 value={accion.nuevaCama}
-                onChange={(e) =>
-                  setAccion({ ...accion, nuevaCama: e.target.value })
-                }
+                readOnly
               />
             </div>
           )}
@@ -763,7 +1016,7 @@ export default function HospitalizacionPage() {
         </Modal>
       )}
 
-      {/* HP0025 - Modal detalle */}
+      {/* HP0028 - Modal detalle */}
       {modalDetalle && pacienteSeleccionado && (
         <Modal titulo="🔍 Detalle del internamiento">
           <p>
@@ -793,10 +1046,10 @@ export default function HospitalizacionPage() {
         </Modal>
       )}
 
-      {/* HP0026 - Modal agregar/quitar cuarto */}
+      {/* HP0029 - Modal cuartos */}
       {modalCuarto && (
         <Modal titulo="🛏️ Gestión de cuartos y ambientes">
-          <h4 style={sectionTitle}>Agregar nuevo cuarto</h4>
+          <h4 style={sectionTitle}>Agregar nuevo cuarto visual</h4>
 
           <input
             style={input}
@@ -827,7 +1080,7 @@ export default function HospitalizacionPage() {
 
           <hr style={{ margin: '18px 0', border: '1px solid #eef0f5' }} />
 
-          <h4 style={sectionTitle}>Quitar cuarto libre</h4>
+          <h4 style={sectionTitle}>Quitar cuarto libre visual</h4>
 
           <select
             style={input}
@@ -881,7 +1134,7 @@ export default function HospitalizacionPage() {
   );
 }
 
-/* HP0027 - Componente modal reutilizable */
+/* HP0030 - Modal reutilizable */
 function Modal({ titulo, children }: { titulo: string; children: ReactNode }) {
   return (
     <div style={modalFondo}>
@@ -893,7 +1146,7 @@ function Modal({ titulo, children }: { titulo: string; children: ReactNode }) {
   );
 }
 
-/* HP0028 - Color según estado del paciente */
+/* HP0031 - Estados visuales */
 function estadoColor(estadoPaciente: EstadoPaciente) {
   let background = '#fff06a';
 
@@ -911,7 +1164,19 @@ function estadoColor(estadoPaciente: EstadoPaciente) {
   };
 }
 
-/* HP0029 - Estilos generales */
+function backendBadge(activo: boolean) {
+  return {
+    padding: '7px 12px',
+    borderRadius: 999,
+    fontSize: 12,
+    fontWeight: 800,
+    background: activo ? '#d8ffe6' : '#fff3cd',
+    color: activo ? '#087f3d' : '#856404',
+    border: activo ? '1px solid #3ee66f' : '1px solid #ffd76a',
+  };
+}
+
+/* HP0032 - Estilos */
 const page = {
   background: 'linear-gradient(135deg, #eefbf3 0%, #f1f3fc 45%, #eaf7ff 100%)',
   minHeight: '100vh',
@@ -944,6 +1209,17 @@ const primaryButton = {
 
 const secondaryButton = {
   background: 'linear-gradient(135deg, #7782c8, #a7abc9)',
+  color: '#fff',
+  border: 'none',
+  padding: '11px 18px',
+  fontSize: '13px',
+  cursor: 'pointer',
+  borderRadius: 8,
+  fontWeight: 800,
+};
+
+const refreshButton = {
+  background: '#16365f',
   color: '#fff',
   border: 'none',
   padding: '11px 18px',
