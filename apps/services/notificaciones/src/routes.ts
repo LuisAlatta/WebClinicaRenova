@@ -1,21 +1,45 @@
 import type { FastifyInstance } from 'fastify';
-// import { Queue, Worker } from 'bullmq';
+import { requireAuth } from '@renova/auth-jwt';
+import { getMongo } from '@renova/db';
+import { crearWorkerNotificaciones, publicarNotificacion, type Notificacion } from '@renova/eventos';
 
 /**
- * NotificacionesService — POR IMPLEMENTAR (ASÍNCRONO).  Responsable sugerido: Sebastian Ticlavilca.
- * Cubre: EnvioNotificacionService.
- * Patrón: consumidor de una cola BullMQ (Redis). Otros servicios publican mensajes
- *         (cita.creada, resultado.listo, alerta.stock) y aquí se "envían" (email/SMS/WhatsApp simulado).
+ * NotificacionesService — consumidor ASÍNCRONO de la cola (BullMQ/Redis).
+ * Los demás servicios publican (cita, resultado, alerta, bienvenida, comprobante)
+ * y aquí se "envían" (simulado) y se guarda el historial en Mongo.
  */
 export async function registrarRutas(app: FastifyInstance) {
-  // POST /enviar -> encolar una notificación manual (para pruebas)
-  app.post('/enviar', async (_req, reply) => {
-    // TODO: añadir job a la cola "notificaciones" (BullMQ)
-    return reply.code(501).send({ ok: false, error: 'No implementado todavía' });
+  // Worker que procesa la cola en segundo plano
+  try {
+    const worker = crearWorkerNotificaciones(async (job) => {
+      const n = job.data as Notificacion;
+      app.log.info(`📨 Notificación [${n.canal}] -> ${n.destino} | ${n.asunto}`);
+      try {
+        const db = await getMongo();
+        await db.collection('notificaciones').insertOne({ ...n, enviada_en: new Date(), estado: 'ENVIADA' });
+      } catch { /* historial best-effort */ }
+    });
+    worker.on('failed', (job, err) => app.log.error(`Notificación fallida: ${err.message}`));
+  } catch (e) {
+    app.log.warn('No se pudo iniciar el worker de notificaciones (¿Redis arriba?)');
+  }
+
+  // Historial de notificaciones enviadas
+  app.get('/historial', { preHandler: requireAuth() }, async () => {
+    try {
+      const db = await getMongo();
+      const data = await db.collection('notificaciones').find().sort({ enviada_en: -1 }).limit(100).toArray();
+      return { ok: true, data };
+    } catch {
+      return { ok: true, data: [] };
+    }
   });
 
-  // GET /historial -> notificaciones enviadas (puedes guardarlas en Mongo)
-  app.get('/historial', async () => ({ ok: true, data: [] }));
-
-  // TODO: iniciar un Worker BullMQ que procese la cola y "envíe" (console.log / nodemailer simulado).
+  // Enviar/encolar una notificación manual (pruebas)
+  app.post('/enviar', { preHandler: requireAuth(['ADMIN']) }, async (req, reply) => {
+    const b = req.body as Notificacion;
+    if (!b?.destino || !b?.mensaje) return reply.code(422).send({ ok: false, error: 'destino y mensaje son requeridos' });
+    await publicarNotificacion({ canal: b.canal || 'email', destino: b.destino, asunto: b.asunto || 'Notificación', mensaje: b.mensaje, tipo: b.tipo });
+    return reply.code(202).send({ ok: true, data: 'encolada' });
+  });
 }
