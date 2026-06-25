@@ -14,11 +14,11 @@ export interface JwtPayload {
 }
 
 export function firmarToken(payload: JwtPayload): string {
-  return jwt.sign(payload, SECRET, { expiresIn: EXPIRES });
+  return jwt.sign(payload, SECRET, { expiresIn: EXPIRES } as jwt.SignOptions);
 }
 
 export function firmarRefresh(payload: Pick<JwtPayload, 'sub'>): string {
-  return jwt.sign(payload, SECRET, { expiresIn: REFRESH_EXPIRES });
+  return jwt.sign(payload, SECRET, { expiresIn: REFRESH_EXPIRES } as jwt.SignOptions);
 }
 
 export function verificarToken(token: string): JwtPayload {

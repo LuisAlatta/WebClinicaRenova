@@ -1,6 +1,6 @@
 import pg from 'pg';
 import { MongoClient, Db } from 'mongodb';
-import Redis from 'ioredis';
+import { Redis } from 'ioredis';
 
 const { Pool } = pg;
 
