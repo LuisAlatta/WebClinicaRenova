@@ -21,3 +21,6 @@ Thumbs.db
 # Docker volumes locales
 infra/postgres/data/
 infra/mongo/data/
+
+# Claude (config local, no se sube)
+.claude/
