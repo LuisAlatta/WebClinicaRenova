@@ -11,6 +11,8 @@ interface Medicamento {
 interface AlertaMedicamento { id: string; codigo: string; nombre: string; stock_total: number; stock_minimo: number; }
 interface AlertaLote { medicamento: string; numero_lote: string; cantidad: number; fecha_vencimiento: string; dias_restantes: number; }
 interface Alertas { bajo_minimo: AlertaMedicamento[]; por_vencer: AlertaLote[]; }
+interface Paciente { id: string; dni: string; nombres: string; apellidos: string; }
+interface Movimiento { id: string; medicamento: string; tipo: 'INGRESO' | 'EGRESO'; cantidad: number; motivo: string; fecha: string; paciente_id?: string; }
 type Tab = 'stock' | 'alertas' | 'despacho' | 'nuevo' | 'lote';
 type Msg = { tipo: 'ok' | 'err'; texto: string } | null;
 
@@ -120,6 +122,8 @@ export default function FarmaciaPage() {
   const [loadingStock, setLoadingStock] = useState(true);
   const [alertas, setAlertas] = useState<Alertas>({ bajo_minimo: [], por_vencer: [] });
   const [loadingAlertas, setLoadingAlertas] = useState(false);
+  const [pacientes, setPacientes] = useState<Paciente[]>([]);
+  const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
   const [f, setF] = useState({ paciente_id: '', medicamento_id: '', cantidad: '', orden_medica: '' });
   const [msg, setMsg] = useState<Msg>(null);
   const [enviando, setEnviando] = useState(false);
@@ -152,9 +156,18 @@ export default function FarmaciaPage() {
     try { const r = await api<{ data: Alertas }>('/api/farmacia/alertas'); setAlertas(r.data || { bajo_minimo: [], por_vencer: [] }); }
     catch { setAlertas({ bajo_minimo: [], por_vencer: [] }); } finally { setLoadingAlertas(false); }
   }
+  async function cargarPacientes() {
+    try { const r = await api<{ data: Paciente[] }>('/api/pacientes'); setPacientes(r.data || []); }
+    catch { setPacientes([]); }
+  }
+  async function cargarMovimientos() {
+    try { const r = await api<{ data: Movimiento[] }>('/api/farmacia/movimientos'); setMovimientos(r.data || []); }
+    catch { setMovimientos([]); }
+  }
 
-  useEffect(() => { cargarStock(); }, []);
+  useEffect(() => { cargarStock(); cargarPacientes(); }, []);
   useEffect(() => { if (tab === 'alertas') cargarAlertas(); }, [tab]);
+  useEffect(() => { if (tab === 'despacho') cargarMovimientos(); }, [tab]);
 
   /* Despacho */
   async function registrarDespacho(e: React.FormEvent) {
@@ -168,6 +181,7 @@ export default function FarmaciaPage() {
       setMsg({ tipo: 'ok', texto: '✓ Despacho registrado correctamente.' });
       setF({ paciente_id: '', medicamento_id: '', cantidad: '', orden_medica: '' });
       cargarStock();
+      cargarMovimientos();
     } catch (err: any) { setMsg({ tipo: 'err', texto: err.message || 'Error al registrar el despacho.' }); }
     finally { setEnviando(false); }
   }
@@ -219,6 +233,7 @@ export default function FarmaciaPage() {
       setMsgLote({ tipo: 'ok', texto: `✓ Lote "${fLote.numero_lote.toUpperCase()}" ingresado para ${med?.nombre ?? 'el medicamento'}.` });
       setFLote({ medicamento_id: '', numero_lote: '', cantidad: '', fecha_vencimiento: '' });
       cargarStock();
+      cargarMovimientos();
     } catch (err: any) {
       setMsgLote({ tipo: 'err', texto: err.message || 'Error al ingresar el lote.' });
     } finally { setRegistrandoLote(false); }
@@ -273,6 +288,7 @@ export default function FarmaciaPage() {
 
         /* Sección alerta */
         .alerta-hdr { display:flex; align-items:center; gap:.5rem; font-weight:800; font-size:.95rem; margin:0 0 .75rem; }
+        .alerta-hdr svg { width:18px; height:18px; flex-shrink:0; }
         .dias-pill { display:inline-block; padding:.2rem .65rem; border-radius:20px; font-size:.78rem; font-weight:700; color:#fff; }
       `}</style>
 
@@ -364,7 +380,7 @@ export default function FarmaciaPage() {
               ? (
                 <div className="card" style={{ textAlign: 'center', padding: '3rem 0' }}>
                   <div style={{ color: 'var(--ok)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '.5rem' }}>
-                    <IcoCheck />
+                    <div style={{ width: 64, height: 64 }}><IcoCheck /></div>
                     <p style={{ fontWeight: 600, color: 'var(--muted)', margin: 0 }}>¡Sin alertas! Todo el stock está en orden.</p>
                   </div>
                 </div>
@@ -435,51 +451,110 @@ export default function FarmaciaPage() {
 
       {/* ══ TAB 3: DESPACHO ══ */}
       {tab === 'despacho' && (
-        <div className="card" style={{ maxWidth: 680 }}>
-          <div style={{ marginBottom: '1.5rem' }}>
-            <button className="btn btn-secondary" type="button" onClick={() => setTab('stock')}>← Volver al stock</button>
-          </div>
-          <AlertMsg msg={msg} />
-          <form id="farmacia-form-despacho" onSubmit={registrarDespacho}>
-            <div className="section-title">Datos del despacho</div>
-
-            {([
-              { id: 'desp-paciente', label: 'Paciente ID *', key: 'paciente_id', placeholder: 'UUID del paciente (ej. 001..)', required: true },
-              { id: 'desp-cant', label: 'Cantidad *', key: 'cantidad', placeholder: 'Unidades a despachar', required: true, type: 'number', min: 1 },
-              { id: 'desp-orden', label: 'Orden médica', key: 'orden_medica', placeholder: 'Nº de receta o referencia (opcional)' },
-            ] as any[]).map(({ id, label, key, ...rest }) => (
-              <div key={id} className="form-row">
-                <label className="label" htmlFor={id}>{label}</label>
-                <input id={id} className="input" value={(f as any)[key]} onChange={setField(key as keyof typeof f)} {...rest} />
-              </div>
-            ))}
-
-            <div className="form-row">
-              <label className="label" htmlFor="desp-med">Medicamento *</label>
-              <select id="desp-med" className="input" value={f.medicamento_id} onChange={setField('medicamento_id')} required>
-                <option value="">Seleccione un medicamento...</option>
-                {stock.filter(m => m.activo && m.stock_total > 0).map(m => (
-                  <option key={m.id} value={m.id}>{m.nombre} — Stock: {m.stock_total} | {fmt(m.precio_unit)}</option>
-                ))}
-              </select>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '2rem', alignItems: 'start' }}>
+          {/* Panel Formulario */}
+          <div className="card">
+            <div style={{ marginBottom: '1.5rem' }}>
+              <button className="btn btn-secondary" type="button" onClick={() => setTab('stock')}>← Volver al stock</button>
             </div>
+            <AlertMsg msg={msg} />
+            <form id="farmacia-form-despacho" onSubmit={registrarDespacho}>
+              <div className="section-title">Datos del despacho</div>
 
-            {precioEst !== null && (
-              <div style={{ background: 'var(--sidebar-active)', border: '1px solid var(--border)', borderRadius: 10, padding: '.85rem 1.2rem', marginBottom: '1rem', fontSize: '.92rem', color: 'var(--navy)' }}>
-                💰 <strong>Total estimado:</strong> {fmt(precioEst)}
+              <div className="form-row">
+                <label className="label" htmlFor="desp-paciente">Paciente *</label>
+                <select id="desp-paciente" className="input" value={f.paciente_id} onChange={setField('paciente_id')} required>
+                  <option value="">Seleccione un paciente...</option>
+                  {pacientes.map(p => (
+                    <option key={p.id} value={p.id}>{p.dni} - {p.nombres} {p.apellidos}</option>
+                  ))}
+                </select>
+              </div>
+
+              {([
+                { id: 'desp-cant', label: 'Cantidad *', key: 'cantidad', placeholder: 'Unidades a despachar', required: true, type: 'number', min: 1 },
+                { id: 'desp-orden', label: 'Orden médica', key: 'orden_medica', placeholder: 'Nº de receta o referencia (opcional)' },
+              ] as any[]).map(({ id, label, key, ...rest }) => (
+                <div key={id} className="form-row">
+                  <label className="label" htmlFor={id}>{label}</label>
+                  <input id={id} className="input" value={(f as any)[key]} onChange={setField(key as keyof typeof f)} {...rest} />
+                </div>
+              ))}
+
+              <div className="form-row">
+                <label className="label" htmlFor="desp-med">Medicamento *</label>
+                <select id="desp-med" className="input" value={f.medicamento_id} onChange={setField('medicamento_id')} required>
+                  <option value="">Seleccione un medicamento...</option>
+                  {stock.filter(m => m.activo && m.stock_total > 0).map(m => (
+                    <option key={m.id} value={m.id}>{m.nombre} — Stock: {m.stock_total} | {fmt(m.precio_unit)}</option>
+                  ))}
+                </select>
+              </div>
+
+              {precioEst !== null && (
+                <div style={{ background: 'var(--sidebar-active)', border: '1px solid var(--border)', borderRadius: 10, padding: '.85rem 1.2rem', marginBottom: '1rem', fontSize: '.92rem', color: 'var(--navy)' }}>
+                  💰 <strong>Total estimado:</strong> {fmt(precioEst)}
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+                <button type="button" className="btn btn-outline"
+                  onClick={() => { setF({ paciente_id: '', medicamento_id: '', cantidad: '', orden_medica: '' }); setMsg(null); }}>
+                  Limpiar
+                </button>
+                <button id="farmacia-btn-despacho" className="btn" type="submit" disabled={enviando}>
+                  {enviando ? 'Registrando...' : 'Registrar despacho'}
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Panel Historial */}
+          <div className="card" style={{ padding: '0' }}>
+            <div style={{ padding: '1.5rem 1.5rem 0', display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+              <div className="icon-badge"><IcoDespacho /></div>
+              <h2 className="section-title" style={{ margin: 0, padding: 0, border: 'none' }}>Historial de Egresos</h2>
+            </div>
+            {movimientos.length === 0 ? (
+              <div className="empty-state">No hay movimientos recientes</div>
+            ) : (
+              <div className="table-container" style={{ maxHeight: '500px', overflowY: 'auto', border: 'none', borderRadius: '0 0 16px 16px' }}>
+                <table className="table">
+                  <thead style={{ position: 'sticky', top: 0, background: '#fff', zIndex: 1 }}>
+                    <tr>
+                      <th>Fecha</th>
+                      <th>Medicamento</th>
+                      <th>Cantidad</th>
+                      <th>Paciente</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {movimientos.filter(m => m.tipo === 'EGRESO').map(mov => {
+                      const paciente = pacientes.find(p => p.id === mov.paciente_id);
+                      return (
+                        <tr key={mov.id}>
+                          <td>{new Date(mov.fecha).toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
+                          <td style={{ fontWeight: 600 }}>{mov.medicamento}</td>
+                          <td style={{ color: 'var(--err)', fontWeight: 700 }}>-{mov.cantidad}</td>
+                          <td>
+                            {paciente ? (
+                              <div>
+                                <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>{paciente.dni}</span>
+                                <br />
+                                <span style={{ color: 'var(--text-light)', fontSize: '0.82rem' }}>{paciente.nombres} {paciente.apellidos}</span>
+                              </div>
+                            ) : (
+                              <span style={{ color: 'var(--muted)', fontSize: '0.82rem' }}>—</span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
               </div>
             )}
-
-            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-              <button type="button" className="btn btn-outline"
-                onClick={() => { setF({ paciente_id: '', medicamento_id: '', cantidad: '', orden_medica: '' }); setMsg(null); }}>
-                Limpiar
-              </button>
-              <button id="farmacia-btn-registrar" className="btn" type="submit" disabled={enviando}>
-                {enviando ? 'Registrando...' : 'Registrar despacho'}
-              </button>
-            </div>
-          </form>
+          </div>
         </div>
       )}
 
@@ -521,52 +596,89 @@ export default function FarmaciaPage() {
 
       {/* ══ TAB 5: INGRESAR LOTE ══ */}
       {tab === 'lote' && (
-        <div className="card" style={{ maxWidth: 680 }}>
-          <div style={{ marginBottom: '1.5rem' }}>
-            <button className="btn btn-secondary" type="button" onClick={() => setTab('stock')}>← Volver al stock</button>
-          </div>
-          <AlertMsg msg={msgLote} />
-          <form id="farmacia-form-lote" onSubmit={registrarLote}>
-            <div className="section-title">Datos del lote</div>
-
-            <div className="form-row">
-              <label className="label" htmlFor="lote-med">Medicamento *</label>
-              <select id="lote-med" className="input" value={fLote.medicamento_id} onChange={setFieldLote('medicamento_id')} required>
-                <option value="">Seleccione un medicamento...</option>
-                {stock.filter(m => m.activo).map(m => (
-                  <option key={m.id} value={m.id}>{m.nombre} ({m.codigo}) — Stock actual: {m.stock_total}</option>
-                ))}
-              </select>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '2rem', alignItems: 'start' }}>
+          {/* Panel Formulario */}
+          <div className="card">
+            <div style={{ marginBottom: '1.5rem' }}>
+              <button className="btn btn-secondary" type="button" onClick={() => setTab('stock')}>← Volver al stock</button>
             </div>
+            <AlertMsg msg={msgLote} />
+            <form id="farmacia-form-lote" onSubmit={registrarLote}>
+              <div className="section-title">Datos del lote</div>
 
-            {([
-              { id: 'lote-num', label: 'N° de lote *', key: 'numero_lote', placeholder: 'Ej. LOT-2025-001' },
-              { id: 'lote-cant', label: 'Cantidad *', key: 'cantidad', placeholder: 'Unidades ingresadas', type: 'number', min: 1 },
-              { id: 'lote-fecha', label: 'Fecha de vencimiento', key: 'fecha_vencimiento', type: 'date' },
-            ] as any[]).map(({ id, label, key, ...rest }) => (
-              <div key={id} className="form-row">
-                <label className="label" htmlFor={id}>{label}</label>
-                <input id={id} className="input" value={(fLote as any)[key]} onChange={setFieldLote(key as keyof typeof fLote)} {...rest} />
+              <div className="form-row">
+                <label className="label" htmlFor="lote-med">Medicamento *</label>
+                <select id="lote-med" className="input" value={fLote.medicamento_id} onChange={setFieldLote('medicamento_id')} required>
+                  <option value="">Seleccione un medicamento...</option>
+                  {stock.filter(m => m.activo).map(m => (
+                    <option key={m.id} value={m.id}>{m.nombre} ({m.codigo}) — Stock actual: {m.stock_total}</option>
+                  ))}
+                </select>
               </div>
-            ))}
 
-            {fLote.medicamento_id && fLote.cantidad && (
-              <div style={{ background: 'var(--sidebar-active)', border: '1px solid var(--border)', borderRadius: 10, padding: '.85rem 1.2rem', marginBottom: '1rem', fontSize: '.92rem', color: 'var(--navy)' }}>
-                📦 <strong>Stock resultante:</strong>{' '}
-                {(stock.find(m => m.id === fLote.medicamento_id)?.stock_total ?? 0) + Number(fLote.cantidad)} unidades
+              {([
+                { id: 'lote-num', label: 'N° de lote *', key: 'numero_lote', placeholder: 'Ej. LOT-2025-001' },
+                { id: 'lote-cant', label: 'Cantidad *', key: 'cantidad', placeholder: 'Unidades ingresadas', type: 'number', min: 1 },
+                { id: 'lote-fecha', label: 'Fecha de vencimiento', key: 'fecha_vencimiento', type: 'date' },
+              ] as any[]).map(({ id, label, key, ...rest }) => (
+                <div key={id} className="form-row">
+                  <label className="label" htmlFor={id}>{label}</label>
+                  <input id={id} className="input" value={(fLote as any)[key]} onChange={setFieldLote(key as keyof typeof fLote)} {...rest} />
+                </div>
+              ))}
+
+              {fLote.medicamento_id && fLote.cantidad && (
+                <div style={{ background: 'var(--sidebar-active)', border: '1px solid var(--border)', borderRadius: 10, padding: '.85rem 1.2rem', marginBottom: '1rem', fontSize: '.92rem', color: 'var(--navy)' }}>
+                  📦 <strong>Stock resultante:</strong>{' '}
+                  {(stock.find(m => m.id === fLote.medicamento_id)?.stock_total ?? 0) + Number(fLote.cantidad)} unidades
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+                <button type="button" className="btn btn-outline"
+                  onClick={() => { setFLote({ medicamento_id: '', numero_lote: '', cantidad: '', fecha_vencimiento: '' }); setMsgLote(null); }}>
+                  Limpiar
+                </button>
+                <button id="farmacia-btn-lote" className="btn" type="submit" disabled={registrandoLote}>
+                  {registrandoLote ? 'Ingresando...' : 'Ingresar lote'}
+                </button>
+              </div>
+            </form>
+          </div>
+
+          {/* Panel Historial de Ingresos */}
+          <div className="card" style={{ padding: '0' }}>
+            <div style={{ padding: '1.5rem 1.5rem 0', display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
+              <div className="icon-badge" style={{ color: 'var(--ok)' }}><IcoLote /></div>
+              <h2 className="section-title" style={{ margin: 0, padding: 0, border: 'none' }}>Historial de Ingresos</h2>
+            </div>
+            {movimientos.filter(m => m.tipo === 'INGRESO').length === 0 ? (
+              <div className="empty-state">No hay ingresos recientes</div>
+            ) : (
+              <div className="table-container" style={{ maxHeight: '500px', overflowY: 'auto', border: 'none', borderRadius: '0 0 16px 16px' }}>
+                <table className="table">
+                  <thead style={{ position: 'sticky', top: 0, background: '#fff', zIndex: 1 }}>
+                    <tr>
+                      <th>Fecha</th>
+                      <th>Medicamento</th>
+                      <th>Cantidad</th>
+                      <th>Motivo</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {movimientos.filter(m => m.tipo === 'INGRESO').map(mov => (
+                      <tr key={mov.id}>
+                        <td>{new Date(mov.fecha).toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
+                        <td style={{ fontWeight: 600 }}>{mov.medicamento}</td>
+                        <td style={{ color: 'var(--ok)', fontWeight: 700 }}>+{mov.cantidad}</td>
+                        <td style={{ color: 'var(--text-light)', fontSize: '0.85rem' }}>{mov.motivo}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
-
-            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-              <button type="button" className="btn btn-outline"
-                onClick={() => { setFLote({ medicamento_id: '', numero_lote: '', cantidad: '', fecha_vencimiento: '' }); setMsgLote(null); }}>
-                Limpiar
-              </button>
-              <button id="farmacia-btn-lote" className="btn" type="submit" disabled={registrandoLote}>
-                {registrandoLote ? 'Ingresando...' : 'Ingresar lote'}
-              </button>
-            </div>
-          </form>
+          </div>
         </div>
       )}
     </>
