@@ -720,15 +720,15 @@ export default function HospitalizacionPage() {
           style={primaryButton}
           onClick={() => setModalIngreso(true)}
         >
-          🏥 + Agregar paciente
+          + Agregar paciente
         </button>
 
         <button style={secondaryButton} onClick={() => setModalCuarto(true)}>
-          🛏️ Agregar / quitar cuarto
+          Agregar / quitar cuarto
         </button>
 
         <button style={refreshButton} onClick={cargarDatosBackend}>
-          🔄 Actualizar BD
+          Actualizar BD
         </button>
 
         <span style={backendBadge(backendActivo)}>
@@ -782,22 +782,22 @@ export default function HospitalizacionPage() {
                   {p.estado === 'INTERNADO' ? (
                     <div style={{ display: 'grid', gap: 4 }}>
                       <button style={smallButton} onClick={() => abrirAccion(p, 'ALTA')}>
-                        ✅ Dar alta
+                        Dar alta
                       </button>
                       <button style={smallButton} onClick={() => abrirAccion(p, 'TRASLADO')}>
-                        🔁 Trasladar
+                        Trasladar
                       </button>
                       <button
                         style={warningButton}
                         onClick={() => abrirAccion(p, 'ALTA VOLUNTARIA')}
                       >
-                        ⚠️ Alta voluntaria
+                        Alta voluntaria
                       </button>
                       <button
                         style={dangerButton}
                         onClick={() => abrirAccion(p, 'REFERIDO EMERGENCIA')}
                       >
-                        🚑 Emergencia
+                        Emergencia
                       </button>
                     </div>
                   ) : (
@@ -806,7 +806,7 @@ export default function HospitalizacionPage() {
                 </td>
                 <td style={td}>
                   <button style={iconButton} onClick={() => verDetalle(p)}>
-                    🔍
+                    Ver
                   </button>
                 </td>
               </tr>
@@ -847,7 +847,7 @@ export default function HospitalizacionPage() {
 
       {/* HP0026 - Modal ingreso */}
       {modalIngreso && (
-        <Modal titulo="🏥 Registrar ingreso hospitalario" onClose={() => setModalIngreso(false)}>
+        <Modal titulo="Registrar ingreso hospitalario" onClose={() => setModalIngreso(false)}>
           <div style={{ display: 'flex', gap: 8 }}>
             <input
               style={input}
@@ -1024,7 +1024,7 @@ export default function HospitalizacionPage() {
 
       {/* HP0028 - Modal detalle */}
       {modalDetalle && pacienteSeleccionado && (
-        <Modal titulo="🔍 Detalle del internamiento" onClose={() => setModalDetalle(false)}>
+        <Modal titulo="Detalle del internamiento" onClose={() => setModalDetalle(false)}>
           <p>
             <b>Paciente:</b> {pacienteSeleccionado.nombres}
           </p>
@@ -1054,7 +1054,7 @@ export default function HospitalizacionPage() {
 
       {/* HP0029 - Modal cuartos */}
       {modalCuarto && (
-        <Modal titulo="🛏️ Gestión de cuartos y ambientes" onClose={() => setModalCuarto(false)}>
+        <Modal titulo="Gestión de cuartos y ambientes" onClose={() => setModalCuarto(false)}>
           <h4 style={sectionTitle}>Agregar nuevo cuarto visual</h4>
 
           <input
@@ -1081,7 +1081,7 @@ export default function HospitalizacionPage() {
           </select>
 
           <button style={saveButton} onClick={agregarCuarto}>
-            ➕ Guardar cuarto
+            Guardar cuarto
           </button>
 
           <hr style={{ margin: '18px 0', border: '1px solid #eef0f5' }} />
@@ -1104,7 +1104,7 @@ export default function HospitalizacionPage() {
           </select>
 
           <button style={dangerButtonLarge} onClick={pedirQuitarCuarto}>
-            🗑️ Quitar cuarto seleccionado
+            Quitar cuarto seleccionado
           </button>
 
           <table style={{ ...smallTable, width: '100%', marginTop: 14 }}>
