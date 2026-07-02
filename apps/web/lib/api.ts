@@ -33,6 +33,18 @@ export async function api<T = any>(path: string, options: RequestInit = {}): Pro
     },
   });
   const json = await res.json().catch(() => ({}));
+
+  // Sesión expirada/ inválida en una ruta protegida: cerrar sesión y volver al login.
+  // (No aplica al propio login para no ocultar el error de credenciales.)
+  if (res.status === 401 && token && !path.startsWith('/api/auth/')) {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('renova_token');
+      localStorage.removeItem('renova_usuario');
+      if (!window.location.pathname.startsWith('/login')) window.location.replace('/login');
+    }
+    throw new Error('Sesión expirada. Vuelve a iniciar sesión.');
+  }
+
   if (!res.ok) throw new Error(json?.error || `Error ${res.status}`);
   return json as T;
 }

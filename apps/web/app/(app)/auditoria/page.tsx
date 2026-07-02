@@ -36,6 +36,7 @@ export default function AuditoriaPage() {
   const [acciones, setAcciones] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
+  const [reload, setReload] = useState(0);
   const [filtros, setFiltros] = useState({ q: '', accion: '', desde: '', hasta: '' });
   const toast = useToast();
 
@@ -56,18 +57,22 @@ export default function AuditoriaPage() {
     } finally { setLoading(false); }
   }, [filtros, toast]);
 
-  useEffect(() => { cargar(page); }, [page, cargar]);
+  // Carga solo al cambiar de página o al pulsar Filtrar/Limpiar (no en cada tecla).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => { cargar(page); }, [page, reload]);
   useEffect(() => {
     api<{ data: string[] }>('/api/auditoria/acciones').then(r => setAcciones(r.data || [])).catch(() => {});
   }, []);
 
   function aplicarFiltros(e: React.FormEvent) {
     e.preventDefault();
-    if (page === 1) cargar(1); else setPage(1);
+    setPage(1);
+    setReload(r => r + 1);
   }
   function limpiar() {
     setFiltros({ q: '', accion: '', desde: '', hasta: '' });
-    if (page === 1) cargar(1); else setPage(1);
+    setPage(1);
+    setReload(r => r + 1);
   }
 
   const totalPaginas = Math.max(1, Math.ceil(meta.total / meta.limit));

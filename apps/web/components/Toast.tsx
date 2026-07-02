@@ -1,5 +1,5 @@
 'use client';
-import { createContext, useCallback, useContext, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 
 type ToastTipo = 'ok' | 'err' | 'info';
 interface ToastItem { id: number; tipo: ToastTipo; titulo: string; mensaje?: string; }
@@ -53,11 +53,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     setTimeout(() => quitar(id), DURACION);
   }, [quitar]);
 
-  const api: ToastApi = {
+  const api = useMemo<ToastApi>(() => ({
     ok: (t, m) => push('ok', t, m),
     error: (t, m) => push('err', t, m),
     info: (t, m) => push('info', t, m),
-  };
+  }), [push]);
 
   return (
     <ToastContext.Provider value={api}>
