@@ -62,7 +62,7 @@ export default function DashboardPage() {
         <div className="card">
           <h4 style={{ margin: '0 0 1rem', color: 'var(--navy)' }}>Estatus de pacientes</h4>
           <table>
-            <thead><tr><th>N°</th><th>Status</th><th>Pacientes</th></tr></thead>
+            <thead><tr><th>N°</th><th>Estado</th><th>Pacientes</th></tr></thead>
             <tbody>
               {(d.estatusPacientes || []).map((e: any, i: number) => (
                 <tr key={i}><td>{i + 1}</td><td>{e.status}</td><td>{e.pacientes}</td></tr>
