@@ -288,9 +288,11 @@ export default function HospitalizacionPage() {
         observacion: item.motivo_ingreso || '',
         responsableIngreso: 'Sistema RENOVA',
         responsableAlta: item.fecha_egreso ? 'Sistema RENOVA' : '',
-        detalle: `Internamiento registrado en PostgreSQL. Estado: ${item.estado}. ${
-          item.resumen_alta ? `Resumen alta: ${item.resumen_alta}` : ''
-        }`,
+        detalle: item.resumen_alta
+          ? `Resumen de alta: ${item.resumen_alta}`
+          : item.motivo_ingreso
+            ? `Motivo de ingreso: ${item.motivo_ingreso}`
+            : 'Sin observaciones adicionales registradas.',
       }),
     );
 
@@ -418,7 +420,7 @@ export default function HospitalizacionPage() {
         const json = await res.json();
 
         if (!json.ok) {
-          toast.error('No se pudo registrar', json.error || 'Se registrará visualmente.');
+          toast.error('No se pudo registrar', json.error || 'No se pudo guardar el ingreso.');
         } else {
           await cargarDatosBackend();
           limpiarFormularioIngreso();
@@ -427,7 +429,7 @@ export default function HospitalizacionPage() {
           return;
         }
       } catch {
-        toast.error('Sin conexión', 'No se pudo conectar al backend. Se registrará visualmente.');
+        toast.error('Sin conexión', 'No se pudo conectar con el servidor.');
       }
     }
 
@@ -549,9 +551,9 @@ export default function HospitalizacionPage() {
           return;
         }
 
-        toast.error('No se pudo registrar', json.error || 'Se aplicará visualmente.');
+        toast.error('No se pudo registrar', json.error || 'No se pudo registrar la acción.');
       } catch {
-        toast.error('Sin conexión', 'No se pudo conectar al backend. Se aplicará visualmente.');
+        toast.error('Sin conexión', 'No se pudo conectar con el servidor.');
       }
     }
 
@@ -733,10 +735,10 @@ export default function HospitalizacionPage() {
 
         <span style={backendBadge(backendActivo)}>
           {cargandoBackend
-            ? 'Conectando...'
+            ? 'Cargando…'
             : backendActivo
-              ? 'BD conectada'
-              : 'Modo demo'}
+              ? 'En línea'
+              : 'Sin conexión'}
         </span>
       </div>
 
