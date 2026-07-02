@@ -61,9 +61,11 @@ services:
       FACTURACION_URL: http://facturacion:3007
       NOTIFICACIONES_URL: http://notificaciones:3008
       REPORTES_URL: http://reportes:3009
+      AUDITORIA_URL: http://auditoria:3010
       REDIS_HOST: redis
+      MONGO_URI: mongodb://mongo:27017
     ports: ["4000:4000"]
-    depends_on: [auth, pacientes, citas, hospitalizacion, farmacia, laboratorio, facturacion, notificaciones, reportes]
+    depends_on: [auth, pacientes, citas, hospitalizacion, farmacia, laboratorio, facturacion, notificaciones, reportes, auditoria]
 
   # ===================== SERVICIOS DE DOMINIO =====================
   auth:
@@ -119,6 +121,12 @@ services:
     env_file: .env
     environment: { PORT: 3009, POSTGRES_HOST: postgres, REDIS_HOST: redis }
     depends_on: { postgres: { condition: service_healthy } }
+
+  auditoria:
+    build: { context: ., dockerfile: apps/services/auditoria/Dockerfile }
+    env_file: .env
+    environment: { PORT: 3010, MONGO_URI: mongodb://mongo:27017 }
+    depends_on: { mongo: { condition: service_healthy } }
 
 volumes:
   pgdata:

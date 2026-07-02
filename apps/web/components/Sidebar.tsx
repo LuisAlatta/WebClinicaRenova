@@ -19,6 +19,8 @@ const items = [
   { href: '/laboratorio', label: 'Laboratorio', icon: I('M9 2v6l-5 9a2 2 0 0 0 2 3h12a2 2 0 0 0 2-3l-5-9V2|M9 2h6|M7 14h10') },
 ];
 
+const itemAuditoria = { href: '/auditoria', label: 'Auditoría', icon: I('M9 2h6a1 1 0 0 1 1 1v1h2a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2V3a1 1 0 0 1 1-1z|M9 12h6|M9 16h4') };
+
 const itemsBottom = [
   { href: '/notificaciones', label: 'Notificaciones', icon: I('M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9|M13.7 21a2 2 0 0 1-3.4 0') },
   { href: '/configuracion', label: 'Configuracion', icon: I('M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z|M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 7 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0-1.1-2.7H1a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 2.6 7') },
@@ -45,6 +47,7 @@ export default function Sidebar() {
       <nav className="nav">
         {items.map(Item)}
         <div className="sep" />
+        {usuario?.rol === 'ADMIN' && Item(itemAuditoria)}
         {itemsBottom.map(Item)}
       </nav>
 
