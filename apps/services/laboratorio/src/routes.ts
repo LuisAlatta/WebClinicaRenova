@@ -123,19 +123,20 @@ export async function registrarRutas(app: FastifyInstance) {
       const pacienteDoc = await db.collection('historias_clinicas').findOne({ dni: solicitud.dni });
       if (pacienteDoc?.episodios?.length) {
         const ultimoIndex = pacienteDoc.episodios.length - 1;
+        const push: Record<string, unknown> = {
+          [`episodios.${ultimoIndex}.resultados_lab`]: {
+            solicitud_id: solicitud.id,
+            tipo_examen: solicitud.tipo_examen,
+            resultado: b.resultado,
+            observaciones: b.observaciones ?? null,
+            recibido_en: new Date(),
+          },
+        };
+        // La clave del $push es dinámica (índice del episodio); los genéricos del
+        // driver de Mongo no admiten claves calculadas, por eso se castea.
         await db.collection('historias_clinicas').updateOne(
           { dni: solicitud.dni },
-          {
-            $push: {
-              [`episodios.${ultimoIndex}.resultados_lab`]: {
-                solicitud_id: solicitud.id,
-                tipo_examen: solicitud.tipo_examen,
-                resultado: b.resultado,
-                observaciones: b.observaciones ?? null,
-                recibido_en: new Date(),
-              },
-            },
-          },
+          { $push: push } as any,
         );
       }
     } catch (e) {
