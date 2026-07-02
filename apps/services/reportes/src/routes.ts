@@ -44,14 +44,14 @@ export async function registrarRutas(app: FastifyInstance) {
     };
   });
 
-  app.get('/ocupacion', { preHandler: requireAuth(['ADMIN', 'AUDITOR']) }, async () => {
+  app.get('/ocupacion', { preHandler: requireAuth(['ADMIN']) }, async () => {
     const get = async (sql: string) => { try { const r = await query<{ n: string }>(sql); return Number(r[0]?.n ?? 0); } catch { return 0; } };
     const total = await get('SELECT COUNT(*)::int n FROM hospitalizacion.camas');
     const ocupadas = await get('SELECT COUNT(*)::int n FROM hospitalizacion.camas WHERE ocupada');
     return { ok: true, data: { total, ocupadas, libres: total - ocupadas } };
   });
 
-  app.get('/ingresos', { preHandler: requireAuth(['ADMIN', 'AUDITOR']) }, async (req) => {
+  app.get('/ingresos', { preHandler: requireAuth(['ADMIN']) }, async (req) => {
     const { desde, hasta } = req.query as { desde?: string; hasta?: string };
     try {
       const rows = await query(

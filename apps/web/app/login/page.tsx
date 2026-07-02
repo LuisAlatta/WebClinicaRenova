@@ -16,10 +16,8 @@ const ROLES_DEMO = [
   { label: 'Administrador', email: 'admin@renova.pe', d: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z' },
   { label: 'Médico', email: 'medico@renova.pe', d: 'M3 12h4l2 5 4-12 2 7h6' },
   { label: 'Asistente', email: 'asistente@renova.pe', d: 'M9 7a3 3 0 1 0 0-6 3 3 0 0 0 0 6z|M2 21a7 7 0 0 1 14 0' },
-  { label: 'Enfermero/a', email: 'enfermero@renova.pe', d: 'M12 6v12|M6 12h12' },
   { label: 'Farmacéutico', email: 'farmaceutico@renova.pe', d: 'M10.5 20.5 3.5 13.5a4.95 4.95 0 0 1 7-7l7 7a4.95 4.95 0 0 1-7 7z|M8.5 8.5l7 7' },
   { label: 'Laboratorista', email: 'laboratorista@renova.pe', d: 'M9 2v6l-5 9a2 2 0 0 0 2 3h12a2 2 0 0 0 2-3l-5-9V2|M9 2h6' },
-  { label: 'Auditor', email: 'auditor@renova.pe', d: 'M9 2h6a1 1 0 0 1 1 1v1h2a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2V3a1 1 0 0 1 1-1z|M9 12h6|M9 16h4' },
 ];
 const CLAVE_DEMO = 'renova123';
 

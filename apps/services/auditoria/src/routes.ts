@@ -13,7 +13,7 @@ const LIMITE_MAX = 100;
 
 export async function registrarRutas(app: FastifyInstance) {
   // GET /logs -> bitácora filtrable y paginada
-  app.get('/logs', { preHandler: requireAuth(['ADMIN', 'AUDITOR']) }, async (req) => {
+  app.get('/logs', { preHandler: requireAuth(['ADMIN']) }, async (req) => {
     const {
       usuario, accion, recurso, metodo, desde, hasta, q,
       page = '1', limit = String(LIMITE_DEFECTO),
@@ -57,7 +57,7 @@ export async function registrarRutas(app: FastifyInstance) {
   });
 
   // GET /acciones -> lista de acciones distintas (para poblar filtros en el frontend)
-  app.get('/acciones', { preHandler: requireAuth(['ADMIN', 'AUDITOR']) }, async () => {
+  app.get('/acciones', { preHandler: requireAuth(['ADMIN']) }, async () => {
     const db = await getMongo();
     const acciones = await db.collection('auditoria_logs').distinct('accion');
     return { ok: true, data: acciones.filter(Boolean).sort() };

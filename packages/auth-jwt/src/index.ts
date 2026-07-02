@@ -4,14 +4,14 @@ const SECRET = process.env.JWT_SECRET || 'dev-secret-cambiar';
 const EXPIRES = process.env.JWT_EXPIRES_IN || '15m';
 const REFRESH_EXPIRES = process.env.JWT_REFRESH_EXPIRES_IN || '7d';
 
+// Matriz de roles oficial (documento 2º avance, sección 5.1 RBAC):
+// Administrador, Admisión/Administrativo (Asistente), Médico/Cirujano, Farmacia, Laboratorio.
 export type Rol =
   | 'ADMIN'
   | 'MEDICO'
   | 'ASISTENTE'
-  | 'ENFERMERO'
   | 'FARMACEUTICO'
-  | 'LABORATORISTA'
-  | 'AUDITOR';
+  | 'LABORATORISTA';
 
 export interface JwtPayload {
   sub: string;        // id del usuario

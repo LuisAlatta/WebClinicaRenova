@@ -18,12 +18,14 @@ const items: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: I('M3 3h7v7H3z|M14 3h7v7h-7z|M14 14h7v7h-7z|M3 14h7v7H3z') },
   { href: '/pacientes', label: 'Registrar Pacientes', roles: ['ASISTENTE', 'MEDICO'], icon: I('M9 7a3 3 0 1 0 0-6 3 3 0 0 0 0 6z|M2 21a7 7 0 0 1 14 0|M18 8v6|M21 11h-6') },
   { href: '/citas', label: 'Programacion de Consultas', roles: ['ASISTENTE', 'MEDICO'], icon: I('M8 2v4|M16 2v4|M3 10h18|M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z') },
-  { href: '/hospitalizacion', label: 'Hospitalizacion', roles: ['MEDICO', 'ENFERMERO', 'ASISTENTE'], icon: I('M3 18v-6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6|M3 18h18|M7 10V7a1 1 0 0 1 1-1h3') },
+  { href: '/hospitalizacion', label: 'Hospitalizacion', roles: ['MEDICO', 'ASISTENTE'], icon: I('M3 18v-6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6|M3 18h18|M7 10V7a1 1 0 0 1 1-1h3') },
   { href: '/farmacia', label: 'Farmacia', roles: ['FARMACEUTICO', 'ASISTENTE', 'MEDICO'], icon: I('M10.5 20.5 3.5 13.5a4.95 4.95 0 0 1 7-7l7 7a4.95 4.95 0 0 1-7 7z|M8.5 8.5l7 7') },
   { href: '/laboratorio', label: 'Laboratorio', roles: ['LABORATORISTA', 'MEDICO'], icon: I('M9 2v6l-5 9a2 2 0 0 0 2 3h12a2 2 0 0 0 2-3l-5-9V2|M9 2h6|M7 14h10') },
+  { href: '/facturacion', label: 'Facturación', roles: ['ASISTENTE'], icon: I('M6 2h9l3 3v17l-3-2-2 2-2-2-2 2-2-2-2 2V4a2 2 0 0 1 2-2z|M9 7h6|M9 11h6|M9 15h4') },
 ];
 
-const itemAuditoria: NavItem = { href: '/auditoria', label: 'Auditoría', roles: ['AUDITOR'], icon: I('M9 2h6a1 1 0 0 1 1 1v1h2a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2V3a1 1 0 0 1 1-1z|M9 12h6|M9 16h4') };
+// roles: [] => solo ADMIN (ver `puedeVer`).
+const itemAuditoria: NavItem = { href: '/auditoria', label: 'Auditoría', roles: [], icon: I('M9 2h6a1 1 0 0 1 1 1v1h2a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2V3a1 1 0 0 1 1-1z|M9 12h6|M9 16h4') };
 
 const itemsBottom: NavItem[] = [
   { href: '/notificaciones', label: 'Notificaciones', icon: I('M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9|M13.7 21a2 2 0 0 1-3.4 0') },

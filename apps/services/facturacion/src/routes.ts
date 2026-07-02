@@ -17,6 +17,12 @@ export async function registrarRutas(app: FastifyInstance) {
     data: await query('SELECT * FROM facturacion.facturas ORDER BY emitida_en DESC LIMIT 100'),
   }));
 
+  // MÉTODOS DE PAGO habilitados (catálogo maestro)
+  app.get('/metodos', { preHandler: requireAuth() }, async () => ({
+    ok: true,
+    data: await query('SELECT id, codigo, nombre FROM maestras.metodos_pago ORDER BY nombre'),
+  }));
+
   // DETALLE
   app.get('/:id', { preHandler: requireAuth() }, async (req, reply) => {
     const { id } = req.params as { id: string };

@@ -66,7 +66,7 @@ export async function registrarRutas(app: FastifyInstance) {
    *   motivo_ingreso
    * }
    */
-app.post('/', { preHandler: requireAuth(['ADMIN', 'ASISTENTE', 'ENFERMERO']) }, async (req, reply) => {
+app.post('/', { preHandler: requireAuth(['ADMIN', 'ASISTENTE']) }, async (req, reply) => {
     const body = req.body as {
       paciente_id?: string;
       medico_responsable_id?: string;
@@ -200,7 +200,7 @@ app.patch('/:id/egreso', { preHandler: requireAuth(['ADMIN', 'MEDICO']) }, async
    * HP-BE-0006
    * Registra seguimiento de signos vitales.
    */
-app.post('/:id/seguimiento', { preHandler: requireAuth(['ADMIN', 'MEDICO', 'ENFERMERO']) }, async (req, reply) => {
+app.post('/:id/seguimiento', { preHandler: requireAuth(['ADMIN', 'MEDICO']) }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const body = req.body as {
       temperatura?: number;

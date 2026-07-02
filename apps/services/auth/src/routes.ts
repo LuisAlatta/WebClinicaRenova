@@ -54,8 +54,8 @@ export async function registrarRutas(app: FastifyInstance) {
   // ---- PERFIL ----
   app.get('/me', { preHandler: requireAuth() }, async (req: any) => ({ ok: true, data: req.usuario }));
 
-  // ---- LISTAR USUARIOS (ADMIN y AUDITOR de solo lectura) ----
-  app.get('/usuarios', { preHandler: requireAuth(['ADMIN', 'AUDITOR']) }, async () => {
+  // ---- LISTAR USUARIOS (solo ADMIN) ----
+  app.get('/usuarios', { preHandler: requireAuth(['ADMIN']) }, async () => {
     const rows = await query(
       `SELECT u.id, u.email, u.nombres, u.apellidos, r.codigo AS rol, u.activo
          FROM auth.usuarios u JOIN auth.roles r ON r.id = u.rol_id ORDER BY u.creado_en`,
