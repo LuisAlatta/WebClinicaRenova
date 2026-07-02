@@ -238,7 +238,9 @@ export default function HospitalizacionPage() {
 
   /* HP0012 - GET /camas desde PostgreSQL */
   async function cargarCamasBackend() {
-    const res = await fetch(`${API_HOSPITALIZACION}/camas`);
+    const res = await fetch(`${API_HOSPITALIZACION}/camas`, {
+      headers: { Authorization: `Bearer ${obtenerToken()}` },
+    });
     const json = await res.json();
 
     if (!json.ok) throw new Error('No se pudo cargar camas.');
@@ -260,7 +262,9 @@ export default function HospitalizacionPage() {
 
   /* HP0013 - GET / internamientos desde PostgreSQL */
   async function cargarInternamientosBackend() {
-    const res = await fetch(`${API_HOSPITALIZACION}/`);
+    const res = await fetch(`${API_HOSPITALIZACION}/`, {
+      headers: { Authorization: `Bearer ${obtenerToken()}` },
+    });
     const json = await res.json();
 
     if (!json.ok) throw new Error('No se pudo cargar internamientos.');

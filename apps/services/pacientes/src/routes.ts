@@ -69,7 +69,7 @@ export async function registrarRutas(app: FastifyInstance) {
   });
 
   // Historia clínica (MongoDB)
-  app.get('/:id/historia', { preHandler: requireAuth(['ADMIN', 'MEDICO']) }, async (req) => {
+  app.get('/:id/historia', { preHandler: requireAuth(['ADMIN', 'MEDICO', 'ENFERMERO']) }, async (req) => {
     const { id } = req.params as { id: string };
     const p = await query<{ dni: string }>('SELECT dni FROM pacientes.pacientes WHERE id = $1', [id]);
     const db = await getMongo();

@@ -58,7 +58,7 @@ export async function registrarRutas(app: FastifyInstance) {
   });
 
   // POST /examenes -> el medico solicita un examen
-  app.post('/examenes', { preHandler: requireAuth(['MEDICO']) }, async (req: any, reply) => {
+  app.post('/examenes', { preHandler: requireAuth(['ADMIN', 'MEDICO']) }, async (req: any, reply) => {
     const b = req.body as any;
 
     if (!b.paciente_id || !b.medico_id || !b.tipo_examen) {

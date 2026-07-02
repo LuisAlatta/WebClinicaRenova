@@ -4,16 +4,24 @@
 
 -- ---------- AUTH ----------
 INSERT INTO auth.roles (codigo, nombre, descripcion) VALUES
-  ('ADMIN',     'Administrador', 'Acceso total al sistema'),
-  ('MEDICO',    'Médico',        'Atención clínica y consultas'),
-  ('ASISTENTE', 'Asistente',     'Admisión, agenda y soporte');
+  ('ADMIN',        'Administrador',       'Acceso total al sistema'),
+  ('MEDICO',       'Médico',              'Atención clínica y consultas'),
+  ('ASISTENTE',    'Asistente',           'Admisión, agenda y soporte'),
+  ('ENFERMERO',    'Enfermero/a',         'Hospitalización: camas y seguimiento de signos vitales'),
+  ('FARMACEUTICO', 'Químico Farmacéutico','Farmacia: stock, lotes y despachos'),
+  ('LABORATORISTA','Laboratorista',       'Laboratorio: solicitudes y resultados de exámenes'),
+  ('AUDITOR',      'Auditor',             'Solo lectura: auditoría y reportes');
 
 -- hash bcrypt de 'renova123'
 INSERT INTO auth.usuarios (email, password_hash, nombres, apellidos, rol_id) VALUES
-  ('admin@renova.pe',    '$2b$10$eNgl7veTmfl.3C4.vREg4.oYNU4bttJGhnjBm1KFck2EX/DF7fFYq', 'Luis',     'Alatta',     (SELECT id FROM auth.roles WHERE codigo='ADMIN')),
-  ('medico@renova.pe',   '$2b$10$eNgl7veTmfl.3C4.vREg4.oYNU4bttJGhnjBm1KFck2EX/DF7fFYq', 'Yordy',    'Neyra',      (SELECT id FROM auth.roles WHERE codigo='MEDICO')),
-  ('asistente@renova.pe','$2b$10$eNgl7veTmfl.3C4.vREg4.oYNU4bttJGhnjBm1KFck2EX/DF7fFYq', 'Jose',     'Ugarte',     (SELECT id FROM auth.roles WHERE codigo='ASISTENTE')),
-  ('medico2@renova.pe',  '$2b$10$eNgl7veTmfl.3C4.vREg4.oYNU4bttJGhnjBm1KFck2EX/DF7fFYq', 'Sebastian','Ticlavilca', (SELECT id FROM auth.roles WHERE codigo='MEDICO'));
+  ('admin@renova.pe',        '$2b$10$eNgl7veTmfl.3C4.vREg4.oYNU4bttJGhnjBm1KFck2EX/DF7fFYq', 'Luis',     'Alatta',     (SELECT id FROM auth.roles WHERE codigo='ADMIN')),
+  ('medico@renova.pe',       '$2b$10$eNgl7veTmfl.3C4.vREg4.oYNU4bttJGhnjBm1KFck2EX/DF7fFYq', 'Yordy',    'Neyra',      (SELECT id FROM auth.roles WHERE codigo='MEDICO')),
+  ('asistente@renova.pe',    '$2b$10$eNgl7veTmfl.3C4.vREg4.oYNU4bttJGhnjBm1KFck2EX/DF7fFYq', 'Jose',     'Ugarte',     (SELECT id FROM auth.roles WHERE codigo='ASISTENTE')),
+  ('medico2@renova.pe',      '$2b$10$eNgl7veTmfl.3C4.vREg4.oYNU4bttJGhnjBm1KFck2EX/DF7fFYq', 'Sebastian','Ticlavilca', (SELECT id FROM auth.roles WHERE codigo='MEDICO')),
+  ('enfermero@renova.pe',    '$2b$10$eNgl7veTmfl.3C4.vREg4.oYNU4bttJGhnjBm1KFck2EX/DF7fFYq', 'Ana',      'Quispe',     (SELECT id FROM auth.roles WHERE codigo='ENFERMERO')),
+  ('farmaceutico@renova.pe', '$2b$10$eNgl7veTmfl.3C4.vREg4.oYNU4bttJGhnjBm1KFck2EX/DF7fFYq', 'Rosa',     'Mendoza',    (SELECT id FROM auth.roles WHERE codigo='FARMACEUTICO')),
+  ('laboratorista@renova.pe','$2b$10$eNgl7veTmfl.3C4.vREg4.oYNU4bttJGhnjBm1KFck2EX/DF7fFYq', 'Carlos',   'Ramos',      (SELECT id FROM auth.roles WHERE codigo='LABORATORISTA')),
+  ('auditor@renova.pe',      '$2b$10$eNgl7veTmfl.3C4.vREg4.oYNU4bttJGhnjBm1KFck2EX/DF7fFYq', 'Elena',    'Torres',     (SELECT id FROM auth.roles WHERE codigo='AUDITOR'));
 
 INSERT INTO auth.permisos (codigo, nombre) VALUES
   ('pacientes:gestionar','Gestionar pacientes'),

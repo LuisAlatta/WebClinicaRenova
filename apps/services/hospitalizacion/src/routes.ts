@@ -12,7 +12,7 @@ export async function registrarRutas(app: FastifyInstance) {
    * HP-BE-0002
    * Lista internamientos con datos del paciente, médico y cama.
    */
-  app.get('/', async () => {
+  app.get('/', { preHandler: requireAuth() }, async () => {
     const data = await query(`
       SELECT 
         i.id,
@@ -45,7 +45,7 @@ export async function registrarRutas(app: FastifyInstance) {
    * HP-BE-0003
    * Lista camas disponibles y ocupadas.
    */
- app.get('/camas', async () => {
+ app.get('/camas', { preHandler: requireAuth() }, async () => {
     const data = await query(`
       SELECT id, codigo, piso, ocupada
       FROM hospitalizacion.camas
@@ -66,7 +66,7 @@ export async function registrarRutas(app: FastifyInstance) {
    *   motivo_ingreso
    * }
    */
-app.post('/', async (req, reply) => {
+app.post('/', { preHandler: requireAuth(['ADMIN', 'ASISTENTE', 'ENFERMERO']) }, async (req, reply) => {
     const body = req.body as {
       paciente_id?: string;
       medico_responsable_id?: string;
@@ -137,7 +137,7 @@ app.post('/', async (req, reply) => {
    * Egreso/alta del paciente.
    * Libera la cama.
    */
-app.patch('/:id/egreso', async (req, reply) => {
+app.patch('/:id/egreso', { preHandler: requireAuth(['ADMIN', 'MEDICO']) }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const body = req.body as {
       resumen_alta?: string;
@@ -200,7 +200,7 @@ app.patch('/:id/egreso', async (req, reply) => {
    * HP-BE-0006
    * Registra seguimiento de signos vitales.
    */
-app.post('/:id/seguimiento', async (req, reply) => {
+app.post('/:id/seguimiento', { preHandler: requireAuth(['ADMIN', 'MEDICO', 'ENFERMERO']) }, async (req, reply) => {
     const { id } = req.params as { id: string };
     const body = req.body as {
       temperatura?: number;

@@ -4,7 +4,14 @@ const SECRET = process.env.JWT_SECRET || 'dev-secret-cambiar';
 const EXPIRES = process.env.JWT_EXPIRES_IN || '15m';
 const REFRESH_EXPIRES = process.env.JWT_REFRESH_EXPIRES_IN || '7d';
 
-export type Rol = 'ADMIN' | 'MEDICO' | 'ASISTENTE';
+export type Rol =
+  | 'ADMIN'
+  | 'MEDICO'
+  | 'ASISTENTE'
+  | 'ENFERMERO'
+  | 'FARMACEUTICO'
+  | 'LABORATORISTA'
+  | 'AUDITOR';
 
 export interface JwtPayload {
   sub: string;        // id del usuario

@@ -22,7 +22,7 @@ export async function registrarRutas(app: FastifyInstance) {
   });
 
   // POST /medicamentos -> registrar medicamento nuevo (Solo ASISTENTE)
-  app.post('/medicamentos', { preHandler: requireAuth(['ASISTENTE']) }, async (req, reply) => {
+  app.post('/medicamentos', { preHandler: requireAuth(['ADMIN', 'FARMACEUTICO', 'ASISTENTE']) }, async (req, reply) => {
     const { codigo, nombre, presentacion, stock_minimo, precio_unit } = req.body as any;
 
     if (!codigo || !nombre) {
@@ -45,7 +45,7 @@ export async function registrarRutas(app: FastifyInstance) {
   });
 
   // POST /lotes -> ingresar lote a inventario (Solo ASISTENTE)
-  app.post('/lotes', { preHandler: requireAuth(['ASISTENTE']) }, async (req, reply) => {
+  app.post('/lotes', { preHandler: requireAuth(['ADMIN', 'FARMACEUTICO', 'ASISTENTE']) }, async (req, reply) => {
     const { medicamento_id, numero_lote, cantidad, fecha_vencimiento } = req.body as any;
 
     if (!medicamento_id || !numero_lote || !cantidad || cantidad <= 0) {
@@ -86,7 +86,7 @@ export async function registrarRutas(app: FastifyInstance) {
   });
 
   // POST /despachos -> entregar medicamento (descuenta stock FEFO, registra movimiento EGRESO) (MEDICO, ASISTENTE)
-  app.post('/despachos', { preHandler: requireAuth(['MEDICO', 'ASISTENTE']) }, async (req, reply) => {
+  app.post('/despachos', { preHandler: requireAuth(['ADMIN', 'FARMACEUTICO', 'MEDICO', 'ASISTENTE']) }, async (req, reply) => {
     const { paciente_id, medicamento_id, cantidad, orden_medica } = req.body as any;
 
     if (!paciente_id || !medicamento_id || !cantidad || cantidad <= 0) {
@@ -184,7 +184,7 @@ export async function registrarRutas(app: FastifyInstance) {
   });
 
   // GET /alertas -> medicamentos bajo stock mínimo o lotes por vencer (ADMIN y ASISTENTE)
-  app.get('/alertas', { preHandler: requireAuth(['ADMIN', 'ASISTENTE']) }, async () => {
+  app.get('/alertas', { preHandler: requireAuth(['ADMIN', 'FARMACEUTICO', 'ASISTENTE']) }, async () => {
     // 1. Medicamentos cuyo stock total es menor o igual al stock mínimo
     const bajo_minimo = await query(`
       SELECT m.id, m.codigo, m.nombre, m.stock_minimo, COALESCE(SUM(l.cantidad), 0)::int as stock_total
@@ -210,7 +210,7 @@ export async function registrarRutas(app: FastifyInstance) {
   });
 
   // GET /movimientos -> Historial de movimientos (ingresos y egresos)
-  app.get('/movimientos', { preHandler: requireAuth(['ADMIN', 'ASISTENTE', 'MEDICO']) }, async () => {
+  app.get('/movimientos', { preHandler: requireAuth(['ADMIN', 'FARMACEUTICO', 'ASISTENTE', 'MEDICO']) }, async () => {
     const movimientos = await query(`
       SELECT mov.id, med.nombre as medicamento, mov.tipo, mov.cantidad, mov.motivo, mov.fecha,
              d.paciente_id
