@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../../lib/api';
 import PageHeader from '../../../components/PageHeader';
+import { useToast } from '../../../components/Toast';
 
 function EstadoBadge({ estado }: { estado: string }) {
   const map: Record<string, { cls: string; txt: string }> = {
@@ -22,7 +23,7 @@ export default function CitasPage() {
   const [pacientes, setPacientes] = useState<any[]>([]);
   const [medicos, setMedicos] = useState<any[]>([]);
   const [recursos, setRecursos] = useState<any>({ consultorios: [], salas: [], procedimientos: [] });
-  const [msg, setMsg] = useState<{ tipo: 'ok' | 'err'; texto: string } | null>(null);
+  const toast = useToast();
 
   const [f, setF] = useState({
     tipo_atencion: 'Consulta', paciente_id: '', medico_id: '', consultorio_id: '',
@@ -43,7 +44,6 @@ export default function CitasPage() {
 
   async function registrar(e: React.FormEvent) {
     e.preventDefault();
-    setMsg(null);
     try {
       if (f.tipo_atencion === 'Cirugía') {
         await api('/api/citas/cirugias', {
@@ -64,10 +64,10 @@ export default function CitasPage() {
           }),
         });
       }
-      setMsg({ tipo: 'ok', texto: 'Programación registrada correctamente' });
+      toast.ok('Programación registrada', 'La cita/cirugía se registró correctamente.');
       setVista('lista');
       cargarLista();
-    } catch (e: any) { setMsg({ tipo: 'err', texto: e.message }); }
+    } catch (e: any) { toast.error('No se pudo registrar', e.message); }
   }
 
   return (
@@ -106,7 +106,6 @@ export default function CitasPage() {
             <button className="btn btn-secondary" type="button">+ Crear programación</button>
             <button className="btn btn-secondary" type="button" onClick={() => setVista('lista')}>Volver a búsqueda</button>
           </div>
-          {msg && <p style={{ color: msg.tipo === 'ok' ? 'var(--ok)' : 'var(--danger)', fontWeight: 600 }}>{msg.texto}</p>}
 
           <form onSubmit={registrar}>
             <div className="section-title">Datos a llenar</div>

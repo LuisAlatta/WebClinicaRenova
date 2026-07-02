@@ -2,6 +2,34 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../../lib/api';
 import PageHeader from '../../../components/PageHeader';
+import Modal from '../../../components/Modal';
+import { useToast } from '../../../components/Toast';
+
+/** Formatea una clave tipo "perfil_lipidico" -> "Perfil lipidico". */
+function etiqueta(k: string) {
+  const s = k.replace(/_/g, ' ');
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/** Muestra un resultado (objeto JSON, string o valor) de forma legible y coherente. */
+function ResultadoView({ resultado }: { resultado: unknown }) {
+  if (resultado && typeof resultado === 'object' && !Array.isArray(resultado)) {
+    const entradas = Object.entries(resultado as Record<string, unknown>);
+    return (
+      <div className="data-block">
+        <dl>
+          {entradas.map(([k, v]) => (
+            <div key={k} style={{ display: 'contents' }}>
+              <dt>{etiqueta(k)}</dt>
+              <dd>{typeof v === 'object' ? JSON.stringify(v) : String(v)}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+    );
+  }
+  return <div className="data-block">{String(resultado ?? '—')}</div>;
+}
 
 function EstadoBadge({ estado }: { estado: string }) {
   const map: Record<string, { cls: string; txt: string }> = {
@@ -21,8 +49,8 @@ export default function LaboratorioPage() {
   const [busca, setBusca] = useState('');
   const [pacientes, setPacientes] = useState<any[]>([]);
   const [medicos, setMedicos] = useState<any[]>([]);
-  const [msg, setMsg] = useState<{ tipo: 'ok' | 'err'; texto: string } | null>(null);
   const [verResultado, setVerResultado] = useState<any | null>(null);
+  const toast = useToast();
 
   const [f, setF] = useState({ paciente_id: '', medico_id: '', tipo_examen: '', prioridad: 'NORMAL' });
 
@@ -39,14 +67,14 @@ export default function LaboratorioPage() {
 
   async function solicitar(e: React.FormEvent) {
     e.preventDefault();
-    setMsg(null);
     try {
       await api('/api/laboratorio/examenes', { method: 'POST', body: JSON.stringify(f) });
-      setMsg({ tipo: 'ok', texto: 'Solicitud de examen registrada correctamente' });
+      toast.ok('Solicitud registrada', 'El examen fue solicitado correctamente.');
+      setF({ paciente_id: '', medico_id: '', tipo_examen: '', prioridad: 'NORMAL' });
       setVista('lista');
       cargarLista();
     } catch (e: any) {
-      setMsg({ tipo: 'err', texto: e.message });
+      toast.error('No se pudo solicitar', e.message);
     }
   }
 
@@ -100,7 +128,6 @@ export default function LaboratorioPage() {
           <div style={{ display: 'flex', gap: '1rem', marginBottom: '1.5rem' }}>
             <button className="btn btn-secondary" type="button" onClick={() => setVista('lista')}>Volver a busqueda</button>
           </div>
-          {msg && <p style={{ color: msg.tipo === 'ok' ? 'var(--ok)' : 'var(--danger)', fontWeight: 600 }}>{msg.texto}</p>}
 
           <form onSubmit={solicitar}>
             <div className="section-title">Formulario de solicitud de examen</div>
@@ -149,22 +176,30 @@ export default function LaboratorioPage() {
         </div>
       )}
 
-      {verResultado && (
-        <div
-          style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 100 }}
-          onClick={() => setVerResultado(null)}
-        >
-          <div className="card" style={{ maxWidth: 420, width: '100%' }} onClick={(e) => e.stopPropagation()}>
-            <h3 style={{ marginTop: 0 }}>Resultado · {verResultado.tipo_examen}</h3>
-            <p style={{ color: 'var(--muted)', marginTop: -8 }}>{verResultado.paciente}</p>
-            <pre style={{ fontSize: '.85rem', background: '#f8fafc', padding: '.75rem', borderRadius: 8, overflowX: 'auto' }}>
-              {JSON.stringify(verResultado.resultado, null, 2)}
-            </pre>
-            {verResultado.resultado_observaciones && <p>{verResultado.resultado_observaciones}</p>}
-            <button className="btn btn-secondary" onClick={() => setVerResultado(null)}>Cerrar</button>
-          </div>
-        </div>
-      )}
+      <Modal
+        open={!!verResultado}
+        onClose={() => setVerResultado(null)}
+        title={verResultado ? `Resultado · ${verResultado.tipo_examen}` : ''}
+        subtitle={verResultado?.paciente}
+        icon={<span className="modal-icon ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>}
+        footer={<button className="btn btn-secondary" onClick={() => setVerResultado(null)}>Cerrar</button>}
+      >
+        {verResultado && (
+          <>
+            <ResultadoView resultado={verResultado.resultado} />
+            {verResultado.resultado_observaciones && (
+              <p style={{ margin: '1rem 0 0', color: 'var(--text)', fontSize: '.9rem' }}>
+                <strong style={{ color: 'var(--muted)', fontWeight: 600 }}>Observaciones:</strong> {verResultado.resultado_observaciones}
+              </p>
+            )}
+            {verResultado.recibido_en && (
+              <p style={{ margin: '.5rem 0 0', color: 'var(--muted)', fontSize: '.82rem' }}>
+                Recibido: {new Date(verResultado.recibido_en).toLocaleString('es-PE')}
+              </p>
+            )}
+          </>
+        )}
+      </Modal>
     </>
   );
 }

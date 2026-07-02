@@ -1,9 +1,12 @@
 'use client';
 
 import { useEffect, useState, type ReactNode } from 'react';
+import ConfirmDialog from '../../../components/ConfirmDialog';
+import PageHeader from '../../../components/PageHeader';
+import { useToast } from '../../../components/Toast';
 
-/* HP0001 - Configuración de conexión backend */
-const API_HOSPITALIZACION = 'http://localhost:3004';
+/* HP0001 - Configuración de conexión backend (vía API Gateway) */
+const API_HOSPITALIZACION = 'http://localhost:4000/api/hospitalizacion';
 
 /* HP0002 - Tipos principales del módulo */
 type EstadoPaciente =
@@ -211,6 +214,9 @@ export default function HospitalizacionPage() {
   });
 
   const [cuartoAQuitar, setCuartoAQuitar] = useState('');
+  const [confirmarQuitar, setConfirmarQuitar] = useState(false);
+
+  const toast = useToast();
 
   /* HP0011 - Carga inicial desde backend */
   useEffect(() => {
@@ -342,7 +348,7 @@ export default function HospitalizacionPage() {
     const encontrado = pacientesBase.find((p) => p.dni === form.dni);
 
     if (!encontrado) {
-      alert('Paciente no encontrado en admisión. Complete los datos manualmente.');
+      toast.info('Paciente no encontrado', 'No está en admisión. Complete los datos manualmente.');
       return;
     }
 
@@ -378,14 +384,14 @@ export default function HospitalizacionPage() {
   /* HP0017 - Registrar ingreso: intenta backend y mantiene demo visual */
   async function agregarPaciente() {
     if (!form.dni || !form.nombres || !form.habitacion || !form.cama) {
-      alert('Complete DNI, nombres, habitación y cama.');
+      toast.error('Datos incompletos', 'Complete DNI, nombres, habitación y cama.');
       return;
     }
 
     const cuartoExiste = cuartos.some((c) => c.cuarto === form.habitacion);
 
     if (!cuartoExiste) {
-      alert('La habitación indicada no existe. Primero agréguela en disponibilidad.');
+      toast.error('Habitación inválida', 'La habitación no existe. Agréguela primero en disponibilidad.');
       return;
     }
 
@@ -412,15 +418,16 @@ export default function HospitalizacionPage() {
         const json = await res.json();
 
         if (!json.ok) {
-          alert(json.error || 'No se pudo registrar en backend. Se registrará visualmente.');
+          toast.error('No se pudo registrar', json.error || 'Se registrará visualmente.');
         } else {
           await cargarDatosBackend();
           limpiarFormularioIngreso();
           setModalIngreso(false);
+          toast.ok('Ingreso registrado', 'El internamiento se guardó correctamente.');
           return;
         }
       } catch {
-        alert('No se pudo conectar al backend. Se registrará visualmente.');
+        toast.error('Sin conexión', 'No se pudo conectar al backend. Se registrará visualmente.');
       }
     }
 
@@ -489,7 +496,7 @@ export default function HospitalizacionPage() {
     if (!pacienteSeleccionado) return;
 
     if (!accion.motivo) {
-      alert('Ingrese motivo u observación de la acción.');
+      toast.error('Falta el motivo', 'Ingrese motivo u observación de la acción.');
       return;
     }
 
@@ -497,7 +504,7 @@ export default function HospitalizacionPage() {
       accion.tipo === 'TRASLADO' &&
       (!accion.nuevaHabitacion || !accion.nuevaCama)
     ) {
-      alert('Ingrese nueva habitación y nueva cama.');
+      toast.error('Datos incompletos', 'Ingrese nueva habitación y nueva cama.');
       return;
     }
 
@@ -505,7 +512,7 @@ export default function HospitalizacionPage() {
       const cuartoExiste = cuartos.some((c) => c.cuarto === accion.nuevaHabitacion);
 
       if (!cuartoExiste) {
-        alert('La nueva habitación no existe en disponibilidad.');
+        toast.error('Habitación inválida', 'La nueva habitación no existe en disponibilidad.');
         return;
       }
     }
@@ -538,12 +545,13 @@ export default function HospitalizacionPage() {
         if (json.ok) {
           await cargarDatosBackend();
           setModalAccion(false);
+          toast.ok('Acción registrada', `Se registró: ${accion.tipo.toLowerCase()}.`);
           return;
         }
 
-        alert(json.error || 'No se pudo registrar acción en backend.');
+        toast.error('No se pudo registrar', json.error || 'Se aplicará visualmente.');
       } catch {
-        alert('No se pudo conectar al backend. Se aplicará visualmente.');
+        toast.error('Sin conexión', 'No se pudo conectar al backend. Se aplicará visualmente.');
       }
     }
 
@@ -623,7 +631,7 @@ export default function HospitalizacionPage() {
     const cuartoLimpio = nuevoCuarto.cuarto.trim().toUpperCase();
 
     if (!cuartoLimpio) {
-      alert('Ingrese número de cuarto.');
+      toast.error('Falta el número', 'Ingrese número de cuarto.');
       return;
     }
 
@@ -632,7 +640,7 @@ export default function HospitalizacionPage() {
     );
 
     if (yaExiste) {
-      alert(`El cuarto ${cuartoLimpio} ya existe. No se puede duplicar.`);
+      toast.error('Cuarto duplicado', `El cuarto ${cuartoLimpio} ya existe.`);
       return;
     }
 
@@ -647,25 +655,30 @@ export default function HospitalizacionPage() {
     ]);
 
     setNuevoCuarto({ cuarto: '', tipo: 'INDIVIDUAL' });
+    toast.ok('Cuarto agregado', `Se agregó el cuarto ${cuartoLimpio}.`);
   }
 
-  function quitarCuarto() {
+  /* Valida y abre la confirmación antes de borrar un cuarto */
+  function pedirQuitarCuarto() {
     if (!cuartoAQuitar) {
-      alert('Seleccione un cuarto para quitar.');
+      toast.error('Selecciona un cuarto', 'Elige un cuarto para quitar.');
       return;
     }
-
     const seleccionado = cuartos.find((c) => c.cuarto === cuartoAQuitar);
-
     if (!seleccionado) return;
-
     if (seleccionado.pacientes > 0) {
-      alert('No se puede quitar un cuarto ocupado.');
+      toast.error('Cuarto ocupado', 'No se puede quitar un cuarto ocupado.');
       return;
     }
+    setConfirmarQuitar(true);
+  }
 
+  /* Borrado efectivo tras confirmar */
+  function quitarCuartoConfirmado() {
     setCuartos(cuartos.filter((c) => c.cuarto !== cuartoAQuitar));
+    toast.ok('Cuarto eliminado', `Se quitó el cuarto ${cuartoAQuitar} de disponibilidad.`);
     setCuartoAQuitar('');
+    setConfirmarQuitar(false);
   }
 
   return (
@@ -699,10 +712,9 @@ export default function HospitalizacionPage() {
       </style>
 
       {/* HP0023 - Encabezado */}
-      <h2 style={title}>Hospitalización</h2>
-      <p style={subtitle}>Buen día, nameUser</p>
+      <PageHeader title="Hospitalización" />
 
-      <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+      <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
         <button
           className="hp-pulse"
           style={primaryButton}
@@ -804,7 +816,7 @@ export default function HospitalizacionPage() {
       </div>
 
       {/* HP0025 - Tabla de cuartos */}
-      <h3 style={{ marginTop: 28, color: '#162b5f' }}>
+      <h3 style={{ marginTop: 28, color: 'var(--navy)' }}>
         Disponibilidad de cuartos
       </h3>
 
@@ -824,14 +836,8 @@ export default function HospitalizacionPage() {
                 <td style={td}>{c.cuarto}</td>
                 <td style={td}>{c.pacientes}</td>
                 <td style={td}>{c.tipo}</td>
-                <td
-                  style={{
-                    ...td,
-                    background: c.estado === 'LIBRE' ? '#3ee66f' : '#fff06a',
-                    fontWeight: 800,
-                  }}
-                >
-                  {c.estado}
+                <td style={td}>
+                  <span className={`badge ${c.estado === 'LIBRE' ? 'ok' : 'warn'}`}>{c.estado}</span>
                 </td>
               </tr>
             ))}
@@ -841,7 +847,7 @@ export default function HospitalizacionPage() {
 
       {/* HP0026 - Modal ingreso */}
       {modalIngreso && (
-        <Modal titulo="🏥 Registrar ingreso hospitalario">
+        <Modal titulo="🏥 Registrar ingreso hospitalario" onClose={() => setModalIngreso(false)}>
           <div style={{ display: 'flex', gap: 8 }}>
             <input
               style={input}
@@ -950,7 +956,7 @@ export default function HospitalizacionPage() {
 
       {/* HP0027 - Modal acciones */}
       {modalAccion && pacienteSeleccionado && (
-        <Modal titulo={`Registrar acción: ${accion.tipo}`}>
+        <Modal titulo={`Registrar acción: ${accion.tipo}`} onClose={() => setModalAccion(false)}>
           <p style={{ fontSize: 13 }}>
             Paciente: <b>{pacienteSeleccionado.nombres}</b>
           </p>
@@ -1018,7 +1024,7 @@ export default function HospitalizacionPage() {
 
       {/* HP0028 - Modal detalle */}
       {modalDetalle && pacienteSeleccionado && (
-        <Modal titulo="🔍 Detalle del internamiento">
+        <Modal titulo="🔍 Detalle del internamiento" onClose={() => setModalDetalle(false)}>
           <p>
             <b>Paciente:</b> {pacienteSeleccionado.nombres}
           </p>
@@ -1048,7 +1054,7 @@ export default function HospitalizacionPage() {
 
       {/* HP0029 - Modal cuartos */}
       {modalCuarto && (
-        <Modal titulo="🛏️ Gestión de cuartos y ambientes">
+        <Modal titulo="🛏️ Gestión de cuartos y ambientes" onClose={() => setModalCuarto(false)}>
           <h4 style={sectionTitle}>Agregar nuevo cuarto visual</h4>
 
           <input
@@ -1097,7 +1103,7 @@ export default function HospitalizacionPage() {
               ))}
           </select>
 
-          <button style={dangerButtonLarge} onClick={quitarCuarto}>
+          <button style={dangerButtonLarge} onClick={pedirQuitarCuarto}>
             🗑️ Quitar cuarto seleccionado
           </button>
 
@@ -1130,241 +1136,234 @@ export default function HospitalizacionPage() {
           </button>
         </Modal>
       )}
+
+      {/* HP0029b - Confirmación de borrado de cuarto */}
+      <ConfirmDialog
+        open={confirmarQuitar}
+        title="¿Quitar este cuarto?"
+        message={`Se eliminará el cuarto ${cuartoAQuitar} de la disponibilidad. Esta acción no se puede deshacer.`}
+        confirmLabel="Sí, quitar"
+        onConfirm={quitarCuartoConfirmado}
+        onCancel={() => setConfirmarQuitar(false)}
+      />
     </div>
   );
 }
 
-/* HP0030 - Modal reutilizable */
-function Modal({ titulo, children }: { titulo: string; children: ReactNode }) {
+/* HP0030 - Modal reutilizable (usa el sistema de diseño compartido) */
+function Modal({ titulo, onClose, children }: { titulo: string; onClose?: () => void; children: ReactNode }) {
   return (
-    <div style={modalFondo}>
-      <div style={modalCaja}>
-        <h3 style={{ marginTop: 0, color: '#16365f' }}>{titulo}</h3>
-        {children}
+    <div className="modal-overlay" onClick={onClose} role="presentation">
+      <div className="modal-card lg" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true" aria-label={titulo}>
+        <div className="modal-head">
+          <div className="modal-titles"><h3 className="modal-title">{titulo}</h3></div>
+          {onClose && <button className="modal-close" onClick={onClose} aria-label="Cerrar">✕</button>}
+        </div>
+        <div className="modal-body">{children}</div>
       </div>
     </div>
   );
 }
 
-/* HP0031 - Estados visuales */
+/* HP0031 - Estados visuales (paleta de tokens) */
 function estadoColor(estadoPaciente: EstadoPaciente) {
-  let background = '#fff06a';
-
-  if (estadoPaciente === 'ALTA') background = '#3ee66f';
-  if (estadoPaciente === 'ALTA VOLUNTARIA') background = '#ffcc4d';
-  if (estadoPaciente === 'REFERIDO EMERGENCIA') background = '#ff6b6b';
+  let background = 'var(--pending)';
+  if (estadoPaciente === 'ALTA') background = 'var(--ok)';
+  if (estadoPaciente === 'ALTA VOLUNTARIA') background = 'var(--warn)';
+  if (estadoPaciente === 'REFERIDO EMERGENCIA') background = 'var(--danger)';
 
   return {
-    padding: '5px 8px',
+    padding: '.3rem .7rem',
     display: 'inline-block',
-    fontWeight: 800,
+    fontWeight: 700,
+    fontSize: '.78rem',
     background,
-    color: '#000',
-    borderRadius: 4,
+    color: '#fff',
+    borderRadius: 8,
+    whiteSpace: 'nowrap' as const,
   };
 }
 
 function backendBadge(activo: boolean) {
   return {
-    padding: '7px 12px',
+    padding: '.4rem .85rem',
     borderRadius: 999,
-    fontSize: 12,
-    fontWeight: 800,
-    background: activo ? '#d8ffe6' : '#fff3cd',
-    color: activo ? '#087f3d' : '#856404',
-    border: activo ? '1px solid #3ee66f' : '1px solid #ffd76a',
+    fontSize: '.78rem',
+    fontWeight: 700,
+    background: activo ? '#e8f6ef' : '#fdf4e3',
+    color: activo ? 'var(--ok)' : 'var(--warn)',
+    border: `1px solid ${activo ? '#bfe6d2' : '#f0dcae'}`,
   };
 }
 
 /* HP0032 - Estilos */
 const page = {
-  background: 'linear-gradient(135deg, #eefbf3 0%, #f1f3fc 45%, #eaf7ff 100%)',
-  minHeight: '100vh',
-  padding: '10px 0 40px 0',
-};
-
-const title = {
-  margin: 0,
-  color: '#162b5f',
-  fontSize: '26px',
-  fontWeight: 800,
-};
-
-const subtitle = {
-  marginTop: 4,
-  color: '#111827',
-  fontSize: '15px',
+  padding: 0,
 };
 
 const primaryButton = {
-  background: 'linear-gradient(135deg, #00a86b, #00989b)',
+  background: 'var(--primary)',
   color: '#fff',
   border: 'none',
-  padding: '11px 18px',
-  fontSize: '13px',
+  padding: '.7rem 1.3rem',
+  fontSize: '.9rem',
   cursor: 'pointer',
-  borderRadius: 8,
-  fontWeight: 800,
+  borderRadius: 10,
+  fontWeight: 700,
 };
 
 const secondaryButton = {
-  background: 'linear-gradient(135deg, #7782c8, #a7abc9)',
+  background: 'var(--secondary)',
   color: '#fff',
   border: 'none',
-  padding: '11px 18px',
-  fontSize: '13px',
+  padding: '.7rem 1.3rem',
+  fontSize: '.9rem',
   cursor: 'pointer',
-  borderRadius: 8,
-  fontWeight: 800,
+  borderRadius: 10,
+  fontWeight: 700,
 };
 
 const refreshButton = {
-  background: '#16365f',
-  color: '#fff',
-  border: 'none',
-  padding: '11px 18px',
-  fontSize: '13px',
+  background: '#fff',
+  color: 'var(--brand)',
+  border: '1.5px solid var(--brand)',
+  padding: '.7rem 1.3rem',
+  fontSize: '.9rem',
   cursor: 'pointer',
-  borderRadius: 8,
-  fontWeight: 800,
+  borderRadius: 10,
+  fontWeight: 700,
 };
 
 const mainTable = {
   width: '100%',
-  background: '#fff',
+  background: 'var(--surface)',
   borderCollapse: 'collapse' as const,
   marginTop: 12,
-  fontSize: '10px',
-  boxShadow: '0 10px 24px rgba(21, 42, 91, .08)',
+  fontSize: '.88rem',
+  borderRadius: 'var(--radius)',
+  overflow: 'hidden',
+  boxShadow: 'var(--shadow)',
 };
 
 const smallTable = {
-  width: '48%',
-  background: '#fff',
+  width: '100%',
+  maxWidth: 640,
+  background: 'var(--surface)',
   borderCollapse: 'collapse' as const,
   marginTop: 12,
-  fontSize: '13px',
-  boxShadow: '0 10px 24px rgba(21, 42, 91, .08)',
+  fontSize: '.9rem',
+  borderRadius: 'var(--radius)',
+  overflow: 'hidden',
+  boxShadow: 'var(--shadow)',
 };
 
 const th = {
-  padding: '7px',
-  color: '#111827',
-  fontWeight: 800,
-  border: '1px solid #d5d8e2',
-  textAlign: 'center' as const,
-  background: '#f9fbff',
+  padding: '.7rem .85rem',
+  color: 'var(--muted)',
+  fontWeight: 600,
+  borderBottom: '1px solid var(--border)',
+  textAlign: 'left' as const,
+  background: 'var(--surface)',
+  fontSize: '.82rem',
 };
 
 const blueTh = {
   ...th,
-  background: '#185cc9',
-  color: '#fff',
-  fontSize: '14px',
+  background: 'var(--sidebar-active)',
+  color: 'var(--brand-d)',
 };
 
 const td = {
-  padding: '7px',
-  border: '1px solid #d5d8e2',
-  textAlign: 'center' as const,
-  color: '#111827',
+  padding: '.7rem .85rem',
+  borderBottom: '1px solid #f0f2f7',
+  textAlign: 'left' as const,
+  color: 'var(--text)',
 };
 
 const smallButton = {
-  background: '#00989b',
+  background: 'var(--primary)',
   color: '#fff',
   border: 'none',
-  padding: '5px 8px',
+  padding: '.4rem .7rem',
   cursor: 'pointer',
-  fontSize: '10px',
-  borderRadius: 5,
+  fontSize: '.78rem',
+  fontWeight: 700,
+  borderRadius: 8,
 };
 
 const warningButton = {
   ...smallButton,
-  background: '#f2a900',
+  background: 'var(--warn)',
 };
 
 const dangerButton = {
   ...smallButton,
-  background: '#d93636',
+  background: 'var(--danger)',
 };
 
 const dangerButtonLarge = {
-  background: '#d93636',
+  background: 'var(--danger)',
   color: '#fff',
   border: 'none',
-  padding: '9px 15px',
+  padding: '.6rem 1.1rem',
   cursor: 'pointer',
-  borderRadius: 6,
-  fontWeight: 800,
+  borderRadius: 10,
+  fontWeight: 700,
 };
 
 const iconButton = {
-  background: '#eef2ff',
-  border: '1px solid #cfd3df',
-  padding: '6px 8px',
+  background: 'var(--sidebar-active)',
+  border: '1px solid var(--border)',
+  padding: '.4rem .6rem',
   cursor: 'pointer',
-  borderRadius: 6,
-};
-
-const modalFondo = {
-  position: 'fixed' as const,
-  inset: 0,
-  background: 'rgba(0,0,0,.35)',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  zIndex: 20,
-};
-
-const modalCaja = {
-  background: '#fff',
-  padding: 24,
-  borderRadius: 12,
-  width: 560,
-  maxHeight: '88vh',
-  overflowY: 'auto' as const,
-  boxShadow: '0 18px 45px rgba(0,0,0,.25)',
-  animation: 'aparecerModal .18s ease-out',
+  borderRadius: 8,
 };
 
 const input = {
   width: '100%',
-  padding: 9,
-  marginBottom: 8,
-  border: '1px solid #cfd3df',
-  borderRadius: 6,
+  padding: '.7rem .9rem',
+  marginBottom: '.7rem',
+  border: '1px solid transparent',
+  borderRadius: 10,
+  background: 'var(--input)',
+  color: 'var(--text)',
+  fontSize: '.95rem',
+  fontFamily: 'inherit',
 };
 
 const saveButton = {
-  background: '#00989b',
+  background: 'var(--primary)',
   color: '#fff',
   border: 'none',
-  padding: '9px 15px',
+  padding: '.7rem 1.4rem',
   marginRight: 8,
   cursor: 'pointer',
-  borderRadius: 6,
-  fontWeight: 800,
+  borderRadius: 10,
+  fontWeight: 700,
 };
 
 const cancelButton = {
-  background: '#ddd',
+  background: 'transparent',
+  color: 'var(--muted)',
   border: 'none',
-  padding: '9px 15px',
+  padding: '.7rem 1.4rem',
   cursor: 'pointer',
-  borderRadius: 6,
+  borderRadius: 10,
+  fontWeight: 700,
 };
 
 const detalleBox = {
-  background: '#f5f5f5',
-  padding: 12,
+  background: '#f6f8fd',
+  border: '1px solid var(--border)',
+  padding: '.9rem 1rem',
   whiteSpace: 'pre-wrap' as const,
-  fontSize: 12,
-  borderRadius: 6,
+  fontSize: '.85rem',
+  color: 'var(--text)',
+  borderRadius: 10,
 };
 
 const sectionTitle = {
-  margin: '6px 0 10px',
-  color: '#162b5f',
+  margin: '.5rem 0 .85rem',
+  color: 'var(--navy)',
+  fontWeight: 800,
 };

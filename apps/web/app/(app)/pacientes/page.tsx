@@ -2,12 +2,13 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../../lib/api';
 import PageHeader from '../../../components/PageHeader';
+import { useToast } from '../../../components/Toast';
 
 export default function PacientesPage() {
   const [tab, setTab] = useState<'paciente' | 'medico'>('paciente');
   const [pacientes, setPacientes] = useState<any[]>([]);
   const [especialidades, setEspecialidades] = useState<any[]>([]);
-  const [msg, setMsg] = useState<{ tipo: 'ok' | 'err'; texto: string } | null>(null);
+  const toast = useToast();
 
   const [fp, setFp] = useState({ nombres: '', apellidos: '', fecha_nacimiento: '', telefono: '', dni: '', email: '' });
   const [fm, setFm] = useState({ nombres: '', apellidos: '', especialidad_id: '', cmp: '', cargo: '', nacionalidad: '' });
@@ -17,32 +18,30 @@ export default function PacientesPage() {
       const [p, e] = await Promise.all([api('/api/pacientes'), api('/api/pacientes/especialidades')]);
       setPacientes(p.data || []);
       setEspecialidades(e.data || []);
-    } catch (e: any) { setMsg({ tipo: 'err', texto: e.message }); }
+    } catch (e: any) { toast.error('Error al cargar', e.message); }
   }
   useEffect(() => { cargar(); }, []);
 
   async function crearPaciente(e: React.FormEvent) {
     e.preventDefault();
-    setMsg(null);
     try {
       await api('/api/pacientes', { method: 'POST', body: JSON.stringify(fp) });
-      setMsg({ tipo: 'ok', texto: 'Paciente registrado correctamente' });
+      toast.ok('Paciente registrado', 'El paciente se registró correctamente.');
       setFp({ nombres: '', apellidos: '', fecha_nacimiento: '', telefono: '', dni: '', email: '' });
       cargar();
-    } catch (e: any) { setMsg({ tipo: 'err', texto: e.message }); }
+    } catch (e: any) { toast.error('No se pudo registrar', e.message); }
   }
 
   async function crearMedico(e: React.FormEvent) {
     e.preventDefault();
-    setMsg(null);
     try {
       await api('/api/pacientes/medicos', {
         method: 'POST',
         body: JSON.stringify({ ...fm, especialidad_id: fm.especialidad_id ? Number(fm.especialidad_id) : null }),
       });
-      setMsg({ tipo: 'ok', texto: 'Médico registrado correctamente' });
+      toast.ok('Médico registrado', 'El médico se registró correctamente.');
       setFm({ nombres: '', apellidos: '', especialidad_id: '', cmp: '', cargo: '', nacionalidad: '' });
-    } catch (e: any) { setMsg({ tipo: 'err', texto: e.message }); }
+    } catch (e: any) { toast.error('No se pudo registrar', e.message); }
   }
 
   return (
@@ -54,10 +53,6 @@ export default function PacientesPage() {
           <div className={`tab ${tab === 'paciente' ? 'active' : ''}`} onClick={() => setTab('paciente')}>Pacientes</div>
           <div className={`tab ${tab === 'medico' ? 'active' : ''}`} onClick={() => setTab('medico')}>Registrar Médico</div>
         </div>
-
-        {msg && (
-          <p style={{ color: msg.tipo === 'ok' ? 'var(--ok)' : 'var(--danger)', fontWeight: 600 }}>{msg.texto}</p>
-        )}
 
         {tab === 'paciente' ? (
           <form onSubmit={crearPaciente}>

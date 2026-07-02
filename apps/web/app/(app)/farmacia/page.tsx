@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../../../lib/api';
 import PageHeader from '../../../components/PageHeader';
+import { useToast } from '../../../components/Toast';
 
 /* ─── Tipos ───────────────────────────────────────────── */
 interface Medicamento {
@@ -14,7 +15,6 @@ interface Alertas { bajo_minimo: AlertaMedicamento[]; por_vencer: AlertaLote[]; 
 interface Paciente { id: string; dni: string; nombres: string; apellidos: string; }
 interface Movimiento { id: string; medicamento: string; tipo: 'INGRESO' | 'EGRESO'; cantidad: number; motivo: string; fecha: string; paciente_id?: string; }
 type Tab = 'stock' | 'alertas' | 'despacho' | 'nuevo' | 'lote';
-type Msg = { tipo: 'ok' | 'err'; texto: string } | null;
 
 /* ─── Helpers ─────────────────────────────────────────── */
 const fmt = (n: number) => new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(n);
@@ -91,20 +91,6 @@ function EmptyRow({ cols, texto }: { cols: number; texto: string }) {
   return <tr><td colSpan={cols} style={{ textAlign: 'center', color: 'var(--muted)', padding: '2.5rem' }}>{texto}</td></tr>;
 }
 
-function AlertMsg({ msg }: { msg: Msg }) {
-  if (!msg) return null;
-  const ok = msg.tipo === 'ok';
-  return (
-    <div style={{
-      padding: '.85rem 1.2rem', borderRadius: 10, marginBottom: '1.25rem', fontWeight: 600,
-      background: ok ? '#ecfdf5' : '#fef2f2', color: ok ? 'var(--ok)' : 'var(--danger)',
-      border: `1px solid ${ok ? '#a7f3d0' : '#fecaca'}`
-    }}>
-      {msg.texto}
-    </div>
-  );
-}
-
 /* ─── Definición de tabs ──────────────────────────────── */
 const TABS: { id: Tab; label: string; Ico: () => JSX.Element }[] = [
   { id: 'stock', label: 'Stock de medicamentos', Ico: IcoCaja },
@@ -125,19 +111,17 @@ export default function FarmaciaPage() {
   const [pacientes, setPacientes] = useState<Paciente[]>([]);
   const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
   const [f, setF] = useState({ paciente_id: '', medicamento_id: '', cantidad: '', orden_medica: '' });
-  const [msg, setMsg] = useState<Msg>(null);
   const [enviando, setEnviando] = useState(false);
+  const toast = useToast();
 
   // Estado formulario Nuevo Medicamento
   const [fNuevo, setFNuevo] = useState({ codigo: '', nombre: '', presentacion: '', stock_minimo: '10', precio_unit: '0' });
-  const [msgNuevo, setMsgNuevo] = useState<Msg>(null);
   const [guardando, setGuardando] = useState(false);
   const setFieldNuevo = (k: keyof typeof fNuevo) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setFNuevo(prev => ({ ...prev, [k]: e.target.value }));
 
   // Estado formulario Ingresar Lote
   const [fLote, setFLote] = useState({ medicamento_id: '', numero_lote: '', cantidad: '', fecha_vencimiento: '' });
-  const [msgLote, setMsgLote] = useState<Msg>(null);
   const [registrandoLote, setRegistrandoLote] = useState(false);
   const setFieldLote = (k: keyof typeof fLote) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setFLote(prev => ({ ...prev, [k]: e.target.value }));
@@ -171,26 +155,26 @@ export default function FarmaciaPage() {
 
   /* Despacho */
   async function registrarDespacho(e: React.FormEvent) {
-    e.preventDefault(); setMsg(null);
+    e.preventDefault();
     if (!f.paciente_id || !f.medicamento_id || !f.cantidad) {
-      setMsg({ tipo: 'err', texto: 'Completa todos los campos requeridos.' }); return;
+      toast.error('Datos incompletos', 'Completa todos los campos requeridos.'); return;
     }
     setEnviando(true);
     try {
       await api('/api/farmacia/despachos', { method: 'POST', body: JSON.stringify({ paciente_id: f.paciente_id, medicamento_id: f.medicamento_id, cantidad: Number(f.cantidad), orden_medica: f.orden_medica || undefined }) });
-      setMsg({ tipo: 'ok', texto: '✓ Despacho registrado correctamente.' });
+      toast.ok('Despacho registrado', 'El medicamento se despachó correctamente.');
       setF({ paciente_id: '', medicamento_id: '', cantidad: '', orden_medica: '' });
       cargarStock();
       cargarMovimientos();
-    } catch (err: any) { setMsg({ tipo: 'err', texto: err.message || 'Error al registrar el despacho.' }); }
+    } catch (err: any) { toast.error('No se pudo despachar', err.message || 'Error al registrar el despacho.'); }
     finally { setEnviando(false); }
   }
 
   /* Nuevo medicamento */
   async function registrarMedicamento(e: React.FormEvent) {
-    e.preventDefault(); setMsgNuevo(null);
+    e.preventDefault();
     if (!fNuevo.codigo || !fNuevo.nombre) {
-      setMsgNuevo({ tipo: 'err', texto: 'Código y nombre son obligatorios.' }); return;
+      toast.error('Datos incompletos', 'Código y nombre son obligatorios.'); return;
     }
     setGuardando(true);
     try {
@@ -204,19 +188,19 @@ export default function FarmaciaPage() {
           precio_unit: Number(fNuevo.precio_unit) || 0,
         }),
       });
-      setMsgNuevo({ tipo: 'ok', texto: `✓ Medicamento "${fNuevo.nombre}" registrado correctamente.` });
+      toast.ok('Medicamento registrado', `"${fNuevo.nombre}" se registró correctamente.`);
       setFNuevo({ codigo: '', nombre: '', presentacion: '', stock_minimo: '10', precio_unit: '0' });
       cargarStock();
     } catch (err: any) {
-      setMsgNuevo({ tipo: 'err', texto: err.message || 'Error al registrar el medicamento.' });
+      toast.error('No se pudo registrar', err.message || 'Error al registrar el medicamento.');
     } finally { setGuardando(false); }
   }
 
   /* Ingresar lote */
   async function registrarLote(e: React.FormEvent) {
-    e.preventDefault(); setMsgLote(null);
+    e.preventDefault();
     if (!fLote.medicamento_id || !fLote.numero_lote || !fLote.cantidad) {
-      setMsgLote({ tipo: 'err', texto: 'Medicamento, número de lote y cantidad son obligatorios.' }); return;
+      toast.error('Datos incompletos', 'Medicamento, número de lote y cantidad son obligatorios.'); return;
     }
     setRegistrandoLote(true);
     try {
@@ -230,12 +214,12 @@ export default function FarmaciaPage() {
         }),
       });
       const med = stock.find(m => m.id === fLote.medicamento_id);
-      setMsgLote({ tipo: 'ok', texto: `✓ Lote "${fLote.numero_lote.toUpperCase()}" ingresado para ${med?.nombre ?? 'el medicamento'}.` });
+      toast.ok('Lote ingresado', `Lote "${fLote.numero_lote.toUpperCase()}" para ${med?.nombre ?? 'el medicamento'}.`);
       setFLote({ medicamento_id: '', numero_lote: '', cantidad: '', fecha_vencimiento: '' });
       cargarStock();
       cargarMovimientos();
     } catch (err: any) {
-      setMsgLote({ tipo: 'err', texto: err.message || 'Error al ingresar el lote.' });
+      toast.error('No se pudo ingresar el lote', err.message || 'Error al ingresar el lote.');
     } finally { setRegistrandoLote(false); }
   }
 
@@ -305,7 +289,7 @@ export default function FarmaciaPage() {
           <button
             key={t.id}
             className={`fm-tab${tab === t.id ? ' active' : ''}`}
-            onClick={() => { setTab(t.id); setMsg(null); }}
+            onClick={() => { setTab(t.id); }}
           >
             <span className="tab-ico"><t.Ico /></span>
             {t.label}
@@ -457,7 +441,6 @@ export default function FarmaciaPage() {
             <div style={{ marginBottom: '1.5rem' }}>
               <button className="btn btn-secondary" type="button" onClick={() => setTab('stock')}>← Volver al stock</button>
             </div>
-            <AlertMsg msg={msg} />
             <form id="farmacia-form-despacho" onSubmit={registrarDespacho}>
               <div className="section-title">Datos del despacho</div>
 
@@ -499,7 +482,7 @@ export default function FarmaciaPage() {
 
               <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
                 <button type="button" className="btn btn-outline"
-                  onClick={() => { setF({ paciente_id: '', medicamento_id: '', cantidad: '', orden_medica: '' }); setMsg(null); }}>
+                  onClick={() => { setF({ paciente_id: '', medicamento_id: '', cantidad: '', orden_medica: '' }); }}>
                   Limpiar
                 </button>
                 <button id="farmacia-btn-despacho" className="btn" type="submit" disabled={enviando}>
@@ -564,7 +547,6 @@ export default function FarmaciaPage() {
           <div style={{ marginBottom: '1.5rem' }}>
             <button className="btn btn-secondary" type="button" onClick={() => setTab('stock')}>← Volver al stock</button>
           </div>
-          <AlertMsg msg={msgNuevo} />
           <form id="farmacia-form-nuevo" onSubmit={registrarMedicamento}>
             <div className="section-title">Datos del medicamento</div>
 
@@ -583,7 +565,7 @@ export default function FarmaciaPage() {
 
             <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
               <button type="button" className="btn btn-outline"
-                onClick={() => { setFNuevo({ codigo: '', nombre: '', presentacion: '', stock_minimo: '10', precio_unit: '0' }); setMsgNuevo(null); }}>
+                onClick={() => { setFNuevo({ codigo: '', nombre: '', presentacion: '', stock_minimo: '10', precio_unit: '0' }); }}>
                 Limpiar
               </button>
               <button id="farmacia-btn-guardar" className="btn" type="submit" disabled={guardando}>
@@ -602,8 +584,7 @@ export default function FarmaciaPage() {
             <div style={{ marginBottom: '1.5rem' }}>
               <button className="btn btn-secondary" type="button" onClick={() => setTab('stock')}>← Volver al stock</button>
             </div>
-            <AlertMsg msg={msgLote} />
-            <form id="farmacia-form-lote" onSubmit={registrarLote}>
+              <form id="farmacia-form-lote" onSubmit={registrarLote}>
               <div className="section-title">Datos del lote</div>
 
               <div className="form-row">
@@ -636,7 +617,7 @@ export default function FarmaciaPage() {
 
               <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
                 <button type="button" className="btn btn-outline"
-                  onClick={() => { setFLote({ medicamento_id: '', numero_lote: '', cantidad: '', fecha_vencimiento: '' }); setMsgLote(null); }}>
+                  onClick={() => { setFLote({ medicamento_id: '', numero_lote: '', cantidad: '', fecha_vencimiento: '' }); }}>
                   Limpiar
                 </button>
                 <button id="farmacia-btn-lote" className="btn" type="submit" disabled={registrandoLote}>

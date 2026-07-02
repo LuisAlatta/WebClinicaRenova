@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Sidebar from '../../components/Sidebar';
+import { ToastProvider } from '../../components/Toast';
 import { getToken } from '../../lib/api';
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -16,9 +17,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   if (!listo) return null;
 
   return (
-    <div className="shell">
-      <Sidebar />
-      <main className="main">{children}</main>
-    </div>
+    <ToastProvider>
+      <div className="shell">
+        <Sidebar />
+        <main className="main">{children}</main>
+      </div>
+    </ToastProvider>
   );
 }
