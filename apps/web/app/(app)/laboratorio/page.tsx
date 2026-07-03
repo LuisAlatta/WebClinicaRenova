@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { api } from '../../../lib/api';
+import { api, getUsuario } from '../../../lib/api';
 import PageHeader from '../../../components/PageHeader';
 import Modal from '../../../components/Modal';
 import { useToast } from '../../../components/Toast';
@@ -53,6 +53,9 @@ export default function LaboratorioPage() {
   const toast = useToast();
 
   const [f, setF] = useState({ paciente_id: '', medico_id: '', tipo_examen: '', prioridad: 'NORMAL' });
+  // Solo el médico (y el admin) puede solicitar exámenes; el laboratorista solo consulta/recibe resultados.
+  const rol = getUsuario()?.rol;
+  const puedeSolicitar = rol === 'ADMIN' || rol === 'MEDICO';
 
   async function cargarLista() {
     const r = await api(`/api/laboratorio/examenes${busca ? `?q=${encodeURIComponent(busca)}` : ''}`);
@@ -94,7 +97,9 @@ export default function LaboratorioPage() {
                 onKeyDown={(e) => e.key === 'Enter' && cargarLista()}
               />
             </div>
-            <button className="btn btn-secondary" onClick={() => setVista('form')}>+ Solicitar examen</button>
+            {puedeSolicitar && (
+              <button className="btn btn-secondary" onClick={() => setVista('form')}>+ Solicitar examen</button>
+            )}
           </div>
 
           <div className="card table-card">
