@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { api, setSesion } from '../../lib/api';
 import { LogoFull } from '../../components/Logo';
@@ -27,6 +27,10 @@ export default function LoginPage() {
   const [password, setPassword] = useState('renova123');
   const [error, setError] = useState('');
   const [cargando, setCargando] = useState(false);
+  // El formulario se monta en el cliente para evitar desajustes de hidratación
+  // provocados por extensiones del navegador (gestores de contraseña, etc.).
+  const [montado, setMontado] = useState(false);
+  useEffect(() => { setMontado(true); }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -44,6 +48,12 @@ export default function LoginPage() {
     } finally {
       setCargando(false);
     }
+  }
+
+  // En SSR y en el primer render del cliente solo mostramos el logo (idéntico en
+  // ambos lados) → hidratación sin conflictos. El formulario aparece tras montar.
+  if (!montado) {
+    return <div className="login-wrap"><LogoFull /></div>;
   }
 
   return (
