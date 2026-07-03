@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { api } from '../../../lib/api';
+import { api, getUsuario } from '../../../lib/api';
 import PageHeader from '../../../components/PageHeader';
 import { useToast } from '../../../components/Toast';
 
@@ -102,6 +102,12 @@ const TABS: { id: Tab; label: string; Ico: () => JSX.Element }[] = [
 
 /* ─── Página principal ────────────────────────────────── */
 export default function FarmaciaPage() {
+  // El médico solo despacha contra orden médica: ve Stock y Despacho.
+  // Gestión de inventario (nuevo medicamento, lotes, alertas) queda para farmacéutico/asistente/admin.
+  const rol = getUsuario()?.rol;
+  const soloDespacho = rol === 'MEDICO';
+  const tabsVisibles = soloDespacho ? TABS.filter(t => t.id === 'stock' || t.id === 'despacho') : TABS;
+
   const [tab, setTab] = useState<Tab>('stock');
   const [stock, setStock] = useState<Medicamento[]>([]);
   const [busca, setBusca] = useState('');
@@ -285,7 +291,7 @@ export default function FarmaciaPage() {
 
       {/* Tab bar con indicador deslizante */}
       <div className="fm-tabs">
-        {TABS.map(t => (
+        {tabsVisibles.map(t => (
           <button
             key={t.id}
             className={`fm-tab${tab === t.id ? ' active' : ''}`}

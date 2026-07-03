@@ -1,10 +1,12 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { api } from '../../../lib/api';
+import { api, getUsuario } from '../../../lib/api';
 import PageHeader from '../../../components/PageHeader';
 import { useToast } from '../../../components/Toast';
 
 export default function PacientesPage() {
+  // Solo el administrador puede registrar médicos (POST /medicos exige ADMIN).
+  const puedeRegistrarMedico = getUsuario()?.rol === 'ADMIN';
   const [tab, setTab] = useState<'paciente' | 'medico'>('paciente');
   const [pacientes, setPacientes] = useState<any[]>([]);
   const [especialidades, setEspecialidades] = useState<any[]>([]);
@@ -51,10 +53,12 @@ export default function PacientesPage() {
       <div className="card">
         <div className="tabs">
           <div className={`tab ${tab === 'paciente' ? 'active' : ''}`} onClick={() => setTab('paciente')}>Pacientes</div>
-          <div className={`tab ${tab === 'medico' ? 'active' : ''}`} onClick={() => setTab('medico')}>Registrar Médico</div>
+          {puedeRegistrarMedico && (
+            <div className={`tab ${tab === 'medico' ? 'active' : ''}`} onClick={() => setTab('medico')}>Registrar Médico</div>
+          )}
         </div>
 
-        {tab === 'paciente' ? (
+        {tab === 'paciente' || !puedeRegistrarMedico ? (
           <form onSubmit={crearPaciente}>
             <div className="section-title">Datos</div>
             <div className="form-row"><label className="label">Nombres</label><input className="input" value={fp.nombres} onChange={(e) => setFp({ ...fp, nombres: e.target.value })} /></div>

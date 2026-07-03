@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import ConfirmDialog from '../../../components/ConfirmDialog';
 import PageHeader from '../../../components/PageHeader';
 import { useToast } from '../../../components/Toast';
+import { getUsuario } from '../../../lib/api';
 
 /* HP0001 - Configuración de conexión backend (vía API Gateway) */
 const API_HOSPITALIZACION = 'http://localhost:4000/api/hospitalizacion';
@@ -217,6 +218,12 @@ export default function HospitalizacionPage() {
   const [confirmarQuitar, setConfirmarQuitar] = useState(false);
 
   const toast = useToast();
+
+  /* HP0010b - Permisos por rol (alineados al backend):
+     ingreso -> ADMIN/ASISTENTE; alta y egreso -> ADMIN/MEDICO. */
+  const rol = getUsuario()?.rol;
+  const puedeIngreso = rol === 'ADMIN' || rol === 'ASISTENTE';
+  const puedeEgreso = rol === 'ADMIN' || rol === 'MEDICO';
 
   /* HP0011 - Carga inicial desde backend */
   useEffect(() => {
@@ -721,13 +728,15 @@ export default function HospitalizacionPage() {
       <PageHeader title="Hospitalización" />
 
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-        <button
-          className="hp-pulse"
-          style={primaryButton}
-          onClick={() => setModalIngreso(true)}
-        >
-          + Agregar paciente
-        </button>
+        {puedeIngreso && (
+          <button
+            className="hp-pulse"
+            style={primaryButton}
+            onClick={() => setModalIngreso(true)}
+          >
+            + Agregar paciente
+          </button>
+        )}
 
         <button style={secondaryButton} onClick={() => setModalCuarto(true)}>
           Agregar / quitar cuarto
@@ -787,24 +796,30 @@ export default function HospitalizacionPage() {
                 <td style={td}>
                   {p.estado === 'INTERNADO' ? (
                     <div style={{ display: 'grid', gap: 4 }}>
-                      <button style={smallButton} onClick={() => abrirAccion(p, 'ALTA')}>
-                        Dar alta
-                      </button>
+                      {puedeEgreso && (
+                        <button style={smallButton} onClick={() => abrirAccion(p, 'ALTA')}>
+                          Dar alta
+                        </button>
+                      )}
                       <button style={smallButton} onClick={() => abrirAccion(p, 'TRASLADO')}>
                         Trasladar
                       </button>
-                      <button
-                        style={warningButton}
-                        onClick={() => abrirAccion(p, 'ALTA VOLUNTARIA')}
-                      >
-                        Alta voluntaria
-                      </button>
-                      <button
-                        style={dangerButton}
-                        onClick={() => abrirAccion(p, 'REFERIDO EMERGENCIA')}
-                      >
-                        Emergencia
-                      </button>
+                      {puedeEgreso && (
+                        <button
+                          style={warningButton}
+                          onClick={() => abrirAccion(p, 'ALTA VOLUNTARIA')}
+                        >
+                          Alta voluntaria
+                        </button>
+                      )}
+                      {puedeEgreso && (
+                        <button
+                          style={dangerButton}
+                          onClick={() => abrirAccion(p, 'REFERIDO EMERGENCIA')}
+                        >
+                          Emergencia
+                        </button>
+                      )}
                     </div>
                   ) : (
                     'Cerrado'

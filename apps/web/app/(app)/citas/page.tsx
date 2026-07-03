@@ -1,6 +1,6 @@
 'use client';
 import { useEffect, useState } from 'react';
-import { api } from '../../../lib/api';
+import { api, getUsuario } from '../../../lib/api';
 import PageHeader from '../../../components/PageHeader';
 import { useToast } from '../../../components/Toast';
 
@@ -25,8 +25,13 @@ export default function CitasPage() {
   const [recursos, setRecursos] = useState<any>({ consultorios: [], salas: [], procedimientos: [] });
   const toast = useToast();
 
+  // Consulta la registra Admisión (ASISTENTE); la cirugía la programa el médico. ADMIN puede ambas.
+  const rol = getUsuario()?.rol;
+  const puedeConsulta = rol === 'ADMIN' || rol === 'ASISTENTE';
+  const puedeCirugia = rol === 'ADMIN' || rol === 'MEDICO';
+
   const [f, setF] = useState({
-    tipo_atencion: 'Consulta', paciente_id: '', medico_id: '', consultorio_id: '',
+    tipo_atencion: puedeConsulta ? 'Consulta' : 'Cirugía', paciente_id: '', medico_id: '', consultorio_id: '',
     sala_id: '', tipo_procedimiento_id: '', fecha_hora: '', duracion_min: '', motivo: '',
   });
 
@@ -111,7 +116,8 @@ export default function CitasPage() {
             <div className="section-title">Datos a llenar</div>
             <div className="form-row"><label className="label">Tipo Atención</label>
               <select className="input" value={f.tipo_atencion} onChange={(e) => setF({ ...f, tipo_atencion: e.target.value })}>
-                <option>Consulta</option><option>Cirugía</option>
+                {puedeConsulta && <option>Consulta</option>}
+                {puedeCirugia && <option>Cirugía</option>}
               </select>
             </div>
             <div className="form-row"><label className="label">Seleccione al paciente</label>
