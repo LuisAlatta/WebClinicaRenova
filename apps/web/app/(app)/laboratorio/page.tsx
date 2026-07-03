@@ -56,6 +56,32 @@ export default function LaboratorioPage() {
   // Solo el médico (y el admin) puede solicitar exámenes; el laboratorista solo consulta/recibe resultados.
   const rol = getUsuario()?.rol;
   const puedeSolicitar = rol === 'ADMIN' || rol === 'MEDICO';
+  // El laboratorista (y el admin) carga los resultados de los exámenes pendientes.
+  const puedeCargar = rol === 'ADMIN' || rol === 'LABORATORISTA';
+  const [cargarEx, setCargarEx] = useState<any | null>(null);
+  const [fRes, setFRes] = useState({ resultado: '', observaciones: '' });
+  const [guardandoRes, setGuardandoRes] = useState(false);
+
+  async function cargarResultado(e: React.FormEvent) {
+    e.preventDefault();
+    if (!cargarEx) return;
+    if (!fRes.resultado.trim()) { toast.error('Falta el resultado', 'Escribe el resultado del examen.'); return; }
+    setGuardandoRes(true);
+    try {
+      await api('/api/laboratorio/resultados', {
+        method: 'POST',
+        body: JSON.stringify({
+          solicitud_id: cargarEx.id,
+          resultado: { detalle: fRes.resultado.trim() },
+          observaciones: fRes.observaciones.trim() || undefined,
+        }),
+      });
+      toast.ok('Resultado cargado', 'El examen quedó finalizado y se notificó al paciente.');
+      setCargarEx(null); setFRes({ resultado: '', observaciones: '' });
+      cargarLista();
+    } catch (err: any) { toast.error('No se pudo cargar', err.message); }
+    finally { setGuardandoRes(false); }
+  }
 
   async function cargarLista() {
     const r = await api(`/api/laboratorio/examenes${busca ? `?q=${encodeURIComponent(busca)}` : ''}`);
@@ -116,9 +142,13 @@ export default function LaboratorioPage() {
                     <td>{new Date(r.solicitado_en).toLocaleDateString()}</td>
                     <td>{r.medico || '—'}</td>
                     <td>
-                      <button className="btn btn-outline" disabled={!r.resultado} onClick={() => setVerResultado(r)}>
-                        Ver resultado
-                      </button>
+                      {r.resultado ? (
+                        <button className="btn btn-outline" onClick={() => setVerResultado(r)}>Ver resultado</button>
+                      ) : puedeCargar ? (
+                        <button className="btn" onClick={() => { setCargarEx(r); setFRes({ resultado: '', observaciones: '' }); }}>Cargar resultado</button>
+                      ) : (
+                        <button className="btn btn-outline" disabled>Ver resultado</button>
+                      )}
                     </td>
                     <td><EstadoBadge estado={r.estado} /></td>
                   </tr>
@@ -204,6 +234,33 @@ export default function LaboratorioPage() {
             )}
           </>
         )}
+      </Modal>
+
+      {/* Cargar resultado (laboratorista / admin) */}
+      <Modal
+        open={!!cargarEx}
+        onClose={() => setCargarEx(null)}
+        title={cargarEx ? `Cargar resultado · ${cargarEx.tipo_examen}` : ''}
+        subtitle={cargarEx?.paciente}
+      >
+        <form onSubmit={cargarResultado}>
+          <div className="form-row" style={{ gridTemplateColumns: '1fr' }}>
+            <label className="label">Resultado del examen *</label>
+            <textarea className="input" rows={4} value={fRes.resultado}
+              onChange={(e) => setFRes({ ...fRes, resultado: e.target.value })}
+              placeholder="Ej. Hemoglobina 13.5 g/dL · Hematocrito 40% · Leucocitos 7.200" />
+          </div>
+          <div className="form-row" style={{ gridTemplateColumns: '1fr' }}>
+            <label className="label">Observaciones</label>
+            <input className="input" value={fRes.observaciones}
+              onChange={(e) => setFRes({ ...fRes, observaciones: e.target.value })}
+              placeholder="Opcional (ej. Valores dentro del rango normal)" />
+          </div>
+          <div style={{ display: 'flex', gap: '.75rem', justifyContent: 'flex-end', marginTop: '.5rem' }}>
+            <button type="button" className="btn btn-ghost" onClick={() => setCargarEx(null)}>Cancelar</button>
+            <button type="submit" className="btn" disabled={guardandoRes}>{guardandoRes ? 'Guardando…' : 'Guardar resultado'}</button>
+          </div>
+        </form>
       </Modal>
     </>
   );
