@@ -32,12 +32,30 @@ const itemsBottom: NavItem[] = [
   { href: '/configuracion', label: 'Configuracion', icon: I('M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z|M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-2.7 1.1V21a2 2 0 1 1-4 0v-.1A1.6 1.6 0 0 0 7 19.4a1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0-1.1-2.7H1a2 2 0 1 1 0-4h.1A1.6 1.6 0 0 0 2.6 7') },
 ];
 
+// Perfil visual por rol: etiqueta, color e icono representativo (avatar).
+type Perfil = { label: string; color: string; icon: string };
+const PERFILES: Record<string, Perfil> = {
+  ADMIN: { label: 'Administrador', color: '#6d5ae6', icon: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z' },
+  MEDICO: { label: 'Médico', color: '#0ea5a3', icon: 'M3 12h4l2 5 4-12 2 7h6' },
+  ASISTENTE: { label: 'Asistente', color: '#3b82f6', icon: 'M9 7a3 3 0 1 0 0-6 3 3 0 0 0 0 6z|M2 21a7 7 0 0 1 14 0' },
+  FARMACEUTICO: { label: 'Farmacéutico', color: '#f0a23b', icon: 'M10.5 20.5 3.5 13.5a4.95 4.95 0 0 1 7-7l7 7a4.95 4.95 0 0 1-7 7z|M8.5 8.5l7 7' },
+  LABORATORISTA: { label: 'Laboratorista', color: '#8b5cf6', icon: 'M9 2v6l-5 9a2 2 0 0 0 2 3h12a2 2 0 0 0 2-3l-5-9V2|M9 2h6|M7 14h10' },
+};
+const PERFIL_DEFECTO: Perfil = { label: 'Usuario', color: '#8fb6e8', icon: 'M9 7a3 3 0 1 0 0-6 3 3 0 0 0 0 6z|M2 21a7 7 0 0 1 14 0' };
+
+const AvatarRol = ({ perfil, size = 20 }: { perfil: Perfil; size?: number }) => (
+  <svg viewBox="0 0 24 24" width={size} height={size} fill="none" stroke="#fff" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+    {perfil.icon.split('|').map((p, i) => <path key={i} d={p} />)}
+  </svg>
+);
+
 export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const usuario = getUsuario();
 
   const rol: string = usuario?.rol || '';
+  const perfil = PERFILES[rol] || PERFIL_DEFECTO;
   const puedeVer = (it: NavItem) => !it.roles || rol === 'ADMIN' || it.roles.includes(rol);
 
   const Item = (it: NavItem) => (
@@ -51,6 +69,7 @@ export default function Sidebar() {
       <div className="brand">
         <LogoFull compact />
         <div className="user">{usuario?.nombre || 'Usuario'}</div>
+        {rol && <div className="user-rol" style={{ color: perfil.color }}>{perfil.label}</div>}
       </div>
 
       <nav className="nav">
@@ -61,9 +80,12 @@ export default function Sidebar() {
       </nav>
 
       <div className="sb-footer">
-        <div className="avatar" />
+        <div className="avatar" style={{ background: perfil.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <AvatarRol perfil={perfil} />
+        </div>
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 700, fontSize: '.9rem' }}>{usuario?.nombre || 'Usuario'}</div>
+          <div style={{ fontSize: '.72rem', fontWeight: 700, color: perfil.color, textTransform: 'uppercase', letterSpacing: '.3px' }}>{perfil.label}</div>
           <button
             onClick={() => { logout(); router.push('/login'); }}
             style={{ background: 'none', border: 0, color: 'var(--muted)', cursor: 'pointer', padding: 0, fontSize: '.85rem' }}
