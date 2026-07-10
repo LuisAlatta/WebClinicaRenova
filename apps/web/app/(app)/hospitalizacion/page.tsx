@@ -26,6 +26,7 @@ type Paciente = {
   nombres: string;
   edad: string;
   doctor: string;
+  especialidad?: string;
   procedimiento: string;
   tipo: string;
   habitacion: string;
@@ -36,6 +37,8 @@ type Paciente = {
   observacion: string;
   responsableIngreso: string;
   responsableAlta: string;
+  referenciaOrigen?: string;
+  referenciaDestino?: string;
   detalle: string;
 };
 
@@ -63,6 +66,8 @@ type BackendInternamiento = {
   medico_responsable_id: string;
   medico_nombres: string;
   medico_apellidos: string;
+  especialidad_id: number | null;
+  especialidad: string | null;
   cama_id: number;
   cama_codigo: string;
   piso: number | null;
@@ -70,6 +75,8 @@ type BackendInternamiento = {
   fecha_egreso: string | null;
   motivo_ingreso: string | null;
   resumen_alta: string | null;
+  referencia_origen: string | null;
+  referencia_destino: string | null;
   estado: string;
 };
 
@@ -197,7 +204,16 @@ export default function HospitalizacionPage() {
     pacienteId: '',
     medicoId: '',
     camaId: '',
+    especialidadId: '',
+    referenciaOrigen: '',
   });
+
+  /* HP0008b - Catálogos para especialidad -> médico responsable */
+  const [especialidades, setEspecialidades] = useState<any[]>([]);
+  const [medicosEsp, setMedicosEsp] = useState<any[]>([]);
+
+  /* HP0008c - Filtro de la tabla por DNI (búsqueda con botón, no listado) */
+  const [filtroDni, setFiltroDni] = useState('');
 
   /* HP0009 - Formulario de acciones */
   const [accion, setAccion] = useState({
@@ -206,6 +222,8 @@ export default function HospitalizacionPage() {
     nuevaHabitacion: '',
     nuevaCama: '',
     responsable: responsables[0],
+    referenciaOrigen: '',
+    referenciaDestino: '',
   });
 
   /* HP0010 - Gestión de cuartos visuales */
@@ -228,7 +246,31 @@ export default function HospitalizacionPage() {
   /* HP0011 - Carga inicial desde backend */
   useEffect(() => {
     cargarDatosBackend();
+    cargarEspecialidades();
   }, []);
+
+  /* HP0011b - Catálogo de especialidades (vía servicio de pacientes) */
+  async function cargarEspecialidades() {
+    try {
+      const res = await fetch('http://localhost:4000/api/pacientes/especialidades', {
+        headers: { Authorization: `Bearer ${obtenerToken()}` },
+      });
+      const json = await res.json();
+      if (json.ok) setEspecialidades(json.data || []);
+    } catch { /* catálogo best-effort */ }
+  }
+
+  /* HP0011c - Médicos de una especialidad (paso 1 -> paso 2) */
+  async function cargarMedicosEspecialidad(especialidadId: string) {
+    if (!especialidadId) { setMedicosEsp([]); return; }
+    try {
+      const res = await fetch(`http://localhost:4000/api/pacientes/medicos?especialidad_id=${especialidadId}`, {
+        headers: { Authorization: `Bearer ${obtenerToken()}` },
+      });
+      const json = await res.json();
+      if (json.ok) setMedicosEsp(json.data || []);
+    } catch { setMedicosEsp([]); }
+  }
 
   async function cargarDatosBackend() {
     setCargandoBackend(true);
@@ -267,16 +309,20 @@ export default function HospitalizacionPage() {
     setCuartos(camasConvertidas);
   }
 
-  /* HP0013 - GET / internamientos desde PostgreSQL */
-  async function cargarInternamientosBackend() {
-    const res = await fetch(`${API_HOSPITALIZACION}/`, {
+  /* HP0013 - GET / internamientos desde PostgreSQL (con filtro opcional por DNI) */
+  async function cargarInternamientosBackend(dni?: string) {
+    const url = dni ? `${API_HOSPITALIZACION}/?dni=${encodeURIComponent(dni)}` : `${API_HOSPITALIZACION}/`;
+    const res = await fetch(url, {
       headers: { Authorization: `Bearer ${obtenerToken()}` },
     });
     const json = await res.json();
 
     if (!json.ok) throw new Error('No se pudo cargar internamientos.');
 
-    if (!json.data || json.data.length === 0) return;
+    if (!json.data || json.data.length === 0) {
+      if (dni) setPacientes([]); // búsqueda sin resultados: tabla vacía
+      return;
+    }
 
     const convertidos: Paciente[] = json.data.map(
       (item: BackendInternamiento, index: number) => ({
@@ -289,6 +335,7 @@ export default function HospitalizacionPage() {
         nombres: `${item.nombres} ${item.apellidos}`,
         edad: '-',
         doctor: `${item.medico_nombres} ${item.medico_apellidos}`,
+        especialidad: item.especialidad || '—',
         procedimiento: item.motivo_ingreso || 'Internamiento hospitalario',
         tipo: 'HOSPITALARIA',
         habitacion: item.cama_codigo?.replace('CAMA-', '') || '-',
@@ -299,11 +346,15 @@ export default function HospitalizacionPage() {
         observacion: item.motivo_ingreso || '',
         responsableIngreso: 'Sistema RENOVA',
         responsableAlta: item.fecha_egreso ? 'Sistema RENOVA' : '',
-        detalle: item.resumen_alta
-          ? `Resumen de alta: ${item.resumen_alta}`
-          : item.motivo_ingreso
-            ? `Motivo de ingreso: ${item.motivo_ingreso}`
-            : 'Sin observaciones adicionales registradas.',
+        referenciaOrigen: item.referencia_origen || '',
+        referenciaDestino: item.referencia_destino || '',
+        detalle: [
+          item.especialidad ? `Especialidad: ${item.especialidad}` : null,
+          item.motivo_ingreso ? `Motivo de ingreso: ${item.motivo_ingreso}` : null,
+          item.referencia_origen ? `Procedencia/traslado desde: ${item.referencia_origen}` : null,
+          item.referencia_destino ? `Referido/trasladado a: ${item.referencia_destino}` : null,
+          item.resumen_alta ? `Resumen de alta: ${item.resumen_alta}` : null,
+        ].filter(Boolean).join('\n') || 'Sin observaciones adicionales registradas.',
       }),
     );
 
@@ -356,15 +407,37 @@ export default function HospitalizacionPage() {
     );
   }
 
-  /* HP0015 - Buscar paciente por DNI */
-  function buscarPacientePorDni() {
-    const encontrado = pacientesBase.find((p) => p.dni === form.dni);
-
-    if (!encontrado) {
-      toast.info('Paciente no encontrado', 'No está en admisión. Complete los datos manualmente.');
+  /* HP0015 - Buscar paciente por DNI (backend real + respaldo demo) */
+  async function buscarPacientePorDni() {
+    if (!form.dni.trim()) {
+      toast.info('Ingresa un documento', 'Escribe el número de documento a buscar.');
       return;
     }
 
+    // 1) Buscar en el registro real de pacientes (servicio de pacientes).
+    try {
+      const res = await fetch(`http://localhost:4000/api/pacientes?dni=${encodeURIComponent(form.dni.trim())}`, {
+        headers: { Authorization: `Bearer ${obtenerToken()}` },
+      });
+      const json = await res.json();
+      if (json.ok && json.data?.length) {
+        const p = json.data[0];
+        setForm((prev) => ({
+          ...prev,
+          nombres: `${p.nombres} ${p.apellidos}`,
+          pacienteId: p.id,
+        }));
+        toast.ok('Paciente encontrado', 'Elige especialidad y médico responsable para el ingreso.');
+        return;
+      }
+    } catch { /* si el backend falla, se usa la demo local */ }
+
+    // 2) Respaldo: pacientes demo mapeados a IDs reales.
+    const encontrado = pacientesBase.find((p) => p.dni === form.dni);
+    if (!encontrado) {
+      toast.info('Paciente no encontrado', 'No está registrado. Regístralo primero en Pacientes.');
+      return;
+    }
     setForm({
       ...form,
       nombres: encontrado.nombres,
@@ -422,9 +495,11 @@ export default function HospitalizacionPage() {
           body: JSON.stringify({
             paciente_id: form.pacienteId,
             medico_responsable_id: form.medicoId,
+            especialidad_id: form.especialidadId ? Number(form.especialidadId) : null,
             cama_id: camaSeleccionada.backendId,
             motivo_ingreso:
               form.observacion || form.procedimiento || 'Ingreso hospitalario',
+            referencia_origen: form.referenciaOrigen || null,
           }),
         });
 
@@ -488,7 +563,10 @@ export default function HospitalizacionPage() {
       pacienteId: '',
       medicoId: '',
       camaId: '',
+      especialidadId: '',
+      referenciaOrigen: '',
     });
+    setMedicosEsp([]);
   }
 
   /* HP0018 - Abrir acción clínica */
@@ -500,6 +578,8 @@ export default function HospitalizacionPage() {
       nuevaHabitacion: '',
       nuevaCama: '',
       responsable: responsables[0],
+      referenciaOrigen: paciente.referenciaOrigen || '',
+      referenciaDestino: '',
     });
     setModalAccion(true);
   }
@@ -518,6 +598,12 @@ export default function HospitalizacionPage() {
       (!accion.nuevaHabitacion || !accion.nuevaCama)
     ) {
       toast.error('Datos incompletos', 'Ingrese nueva habitación y nueva cama.');
+      return;
+    }
+
+    // En referencia de emergencia es obligatorio indicar a dónde se traslada.
+    if (accion.tipo === 'REFERIDO EMERGENCIA' && !accion.referenciaDestino.trim()) {
+      toast.error('Falta el destino', 'Indique a qué establecimiento/servicio se traslada al paciente.');
       return;
     }
 
@@ -549,6 +635,8 @@ export default function HospitalizacionPage() {
             body: JSON.stringify({
               resumen_alta: accion.motivo,
               estado: convertirEstadoFrontend(accion.tipo),
+              referencia_origen: accion.referenciaOrigen || null,
+              referencia_destino: accion.referenciaDestino || null,
             }),
           },
         );
@@ -619,7 +707,9 @@ export default function HospitalizacionPage() {
           fechaAlta: fecha,
           responsableAlta: accion.responsable,
           observacion: accion.motivo,
-          detalle: `${p.detalle}\nReferencia de emergencia registrada el ${fecha} por ${accion.responsable}. Situación reportada: ${accion.motivo}.`,
+          referenciaOrigen: accion.referenciaOrigen,
+          referenciaDestino: accion.referenciaDestino,
+          detalle: `${p.detalle}\nReferencia de emergencia registrada el ${fecha} por ${accion.responsable}. Situación: ${accion.motivo}. Trasladado desde: ${accion.referenciaOrigen || 'la clínica'} hacia: ${accion.referenciaDestino}.`,
         };
       }),
     );
@@ -755,6 +845,30 @@ export default function HospitalizacionPage() {
         </span>
       </div>
 
+      {/* HP0023b - Búsqueda por DNI (con botón, no listado) + leyenda de estados */}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginTop: 16 }}>
+        <input
+          style={{ ...input, marginBottom: 0, maxWidth: 260 }}
+          placeholder="Buscar internamiento por DNI…"
+          value={filtroDni}
+          onChange={(e) => setFiltroDni(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && cargarInternamientosBackend(filtroDni.trim() || undefined)}
+        />
+        <button style={secondaryButton} onClick={() => cargarInternamientosBackend(filtroDni.trim() || undefined)}>
+          Buscar
+        </button>
+        <button style={refreshButton} onClick={() => { setFiltroDni(''); cargarDatosBackend(); }}>
+          Ver todos
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 12, fontSize: '.78rem', color: 'var(--muted)' }}>
+        <span><span style={{ ...leyendaPunto, background: 'var(--pending)' }} /> Internado</span>
+        <span><span style={{ ...leyendaPunto, background: 'var(--ok)' }} /> Alta</span>
+        <span><span style={{ ...leyendaPunto, background: 'var(--warn)' }} /> Alta voluntaria</span>
+        <span><span style={{ ...leyendaPunto, background: 'var(--danger)' }} /> Referido a emergencia</span>
+      </div>
+
       {/* HP0024 - Tabla principal */}
       <div className="hp-card">
         <table style={mainTable}>
@@ -764,6 +878,7 @@ export default function HospitalizacionPage() {
               <th style={th}>Nombres</th>
               <th style={th}>Edad</th>
               <th style={th}>Doctor</th>
+              <th style={th}>Especialidad</th>
               <th style={th}>Procedimiento</th>
               <th style={th}>Tipo</th>
               <th style={th}>Hab.</th>
@@ -783,6 +898,7 @@ export default function HospitalizacionPage() {
                 <td style={td}>{p.nombres}</td>
                 <td style={td}>{p.edad}</td>
                 <td style={td}>{p.doctor}</td>
+                <td style={td}>{p.especialidad || '—'}</td>
                 <td style={td}>{p.procedimiento}</td>
                 <td style={td}>{p.tipo}</td>
                 <td style={td}>{p.habitacion}</td>
@@ -911,6 +1027,34 @@ export default function HospitalizacionPage() {
             }
           />
 
+          <label style={fieldLabel}>Especialidad que atiende/opera</label>
+          <select
+            style={input}
+            value={form.especialidadId}
+            onChange={(e) => {
+              setForm({ ...form, especialidadId: e.target.value, medicoId: '' });
+              cargarMedicosEspecialidad(e.target.value);
+            }}
+          >
+            <option value="">Seleccione especialidad…</option>
+            {especialidades.map((e) => (
+              <option key={e.id} value={e.id}>{e.nombre}</option>
+            ))}
+          </select>
+
+          <label style={fieldLabel}>Médico responsable</label>
+          <select
+            style={input}
+            value={form.medicoId}
+            disabled={!form.especialidadId}
+            onChange={(e) => setForm({ ...form, medicoId: e.target.value })}
+          >
+            <option value="">{form.especialidadId ? 'Seleccione médico…' : 'Primero elija especialidad'}</option>
+            {medicosEsp.map((m) => (
+              <option key={m.id} value={m.id}>{m.nombres} {m.apellidos}{m.cmp ? ` (${m.cmp})` : ''}</option>
+            ))}
+          </select>
+
           <select
             style={input}
             value={form.tipo}
@@ -966,6 +1110,14 @@ export default function HospitalizacionPage() {
             onChange={(e) => setForm({ ...form, observacion: e.target.value })}
           />
 
+          <label style={fieldLabel}>Procedencia del paciente (de dónde es trasladado)</label>
+          <input
+            style={input}
+            placeholder="Ej: Emergencia, consulta externa, otro establecimiento…"
+            value={form.referenciaOrigen}
+            onChange={(e) => setForm({ ...form, referenciaOrigen: e.target.value })}
+          />
+
           <button style={saveButton} onClick={agregarPaciente}>
             Guardar ingreso
           </button>
@@ -1013,6 +1165,25 @@ export default function HospitalizacionPage() {
                 readOnly
               />
             </div>
+          )}
+
+          {accion.tipo === 'REFERIDO EMERGENCIA' && (
+            <>
+              <label style={fieldLabel}>Procedencia (de dónde proviene el paciente)</label>
+              <input
+                style={input}
+                placeholder="Ej: hospitalización piso 2, emergencia…"
+                value={accion.referenciaOrigen}
+                onChange={(e) => setAccion({ ...accion, referenciaOrigen: e.target.value })}
+              />
+              <label style={fieldLabel}>Destino del traslado (obligatorio)</label>
+              <input
+                style={input}
+                placeholder="Ej: Hospital Regional, UCI externa, otro establecimiento…"
+                value={accion.referenciaDestino}
+                onChange={(e) => setAccion({ ...accion, referenciaDestino: e.target.value })}
+              />
+            </>
           )}
 
           <select
@@ -1387,4 +1558,21 @@ const sectionTitle = {
   margin: '.5rem 0 .85rem',
   color: 'var(--navy)',
   fontWeight: 800,
+};
+
+const fieldLabel = {
+  display: 'block',
+  margin: '.2rem 0 .35rem',
+  fontSize: '.8rem',
+  fontWeight: 700,
+  color: 'var(--muted)',
+};
+
+const leyendaPunto = {
+  display: 'inline-block',
+  width: 10,
+  height: 10,
+  borderRadius: 999,
+  marginRight: 5,
+  verticalAlign: 'middle' as const,
 };

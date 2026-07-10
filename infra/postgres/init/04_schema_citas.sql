@@ -20,7 +20,9 @@ CREATE TABLE cirugias (
   paciente_id        UUID NOT NULL,
   cirujano_id        UUID NOT NULL,
   anestesiologo_id   UUID,
+  especialidad_id    INTEGER,                     -- ref maestras.especialidades(id)
   sala_id            INTEGER,                     -- ref maestras.salas_quirurgicas(id)
+  cama_id            INTEGER,                     -- cuarto/cama de recuperación reservado
   tipo_procedimiento_id INTEGER,
   tipo_anestesia_id  INTEGER,
   fecha_hora         TIMESTAMPTZ NOT NULL,

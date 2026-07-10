@@ -12,9 +12,10 @@ export async function registrarRutas(app: FastifyInstance) {
    * HP-BE-0002
    * Lista internamientos con datos del paciente, médico y cama.
    */
-  app.get('/', { preHandler: requireAuth() }, async () => {
+  app.get('/', { preHandler: requireAuth() }, async (req) => {
+    const { dni } = req.query as { dni?: string };
     const data = await query(`
-      SELECT 
+      SELECT
         i.id,
         i.paciente_id,
         p.dni,
@@ -23,6 +24,8 @@ export async function registrarRutas(app: FastifyInstance) {
         i.medico_responsable_id,
         m.nombres AS medico_nombres,
         m.apellidos AS medico_apellidos,
+        i.especialidad_id,
+        e.nombre AS especialidad,
         i.cama_id,
         c.codigo AS cama_codigo,
         c.piso,
@@ -30,13 +33,17 @@ export async function registrarRutas(app: FastifyInstance) {
         i.fecha_egreso,
         i.motivo_ingreso,
         i.resumen_alta,
+        i.referencia_origen,
+        i.referencia_destino,
         i.estado
       FROM hospitalizacion.internamientos i
       INNER JOIN pacientes.pacientes p ON p.id = i.paciente_id
       INNER JOIN maestras.medicos m ON m.id = i.medico_responsable_id
       LEFT JOIN hospitalizacion.camas c ON c.id = i.cama_id
+      LEFT JOIN maestras.especialidades e ON e.id = i.especialidad_id
+      WHERE ($1::text IS NULL OR p.dni ILIKE $1)
       ORDER BY i.fecha_ingreso DESC
-    `);
+    `, [dni ? `%${dni}%` : null]);
 
     return { ok: true, data };
   });
@@ -70,8 +77,10 @@ app.post('/', { preHandler: requireAuth(['ADMIN', 'ASISTENTE']) }, async (req, r
     const body = req.body as {
       paciente_id?: string;
       medico_responsable_id?: string;
+      especialidad_id?: number;
       cama_id?: number;
       motivo_ingreso?: string;
+      referencia_origen?: string;
     };
 
     if (!body.paciente_id || !body.medico_responsable_id || !body.cama_id) {
@@ -107,16 +116,18 @@ app.post('/', { preHandler: requireAuth(['ADMIN', 'ASISTENTE']) }, async (req, r
     const nuevo = await query(
       `
       INSERT INTO hospitalizacion.internamientos
-        (paciente_id, medico_responsable_id, cama_id, motivo_ingreso, estado)
+        (paciente_id, medico_responsable_id, especialidad_id, cama_id, motivo_ingreso, referencia_origen, estado)
       VALUES
-        ($1, $2, $3, $4, 'EN_PROCESO')
+        ($1, $2, $3, $4, $5, $6, 'EN_PROCESO')
       RETURNING *
       `,
       [
         body.paciente_id,
         body.medico_responsable_id,
+        body.especialidad_id || null,
         body.cama_id,
         body.motivo_ingreso || null,
+        body.referencia_origen || null,
       ],
     );
 
@@ -142,7 +153,17 @@ app.patch('/:id/egreso', { preHandler: requireAuth(['ADMIN', 'MEDICO']) }, async
     const body = req.body as {
       resumen_alta?: string;
       estado?: 'ALTA' | 'ALTA_VOLUNTARIA' | 'REFERIDO_EMERGENCIA';
+      referencia_origen?: string;
+      referencia_destino?: string;
     };
+
+    // En una referencia de emergencia es obligatorio saber a dónde se traslada al paciente.
+    if (body.estado === 'REFERIDO_EMERGENCIA' && !body.referencia_destino?.trim()) {
+      return reply.code(422).send({
+        ok: false,
+        error: 'En una referencia de emergencia debe indicar a dónde se traslada al paciente.',
+      });
+    }
 
     const actual = await query<{ id: string; cama_id: number | null; estado: string }>(
       `
@@ -172,14 +193,16 @@ app.patch('/:id/egreso', { preHandler: requireAuth(['ADMIN', 'MEDICO']) }, async
     const actualizado = await query(
       `
       UPDATE hospitalizacion.internamientos
-      SET 
+      SET
         fecha_egreso = now(),
         resumen_alta = $2,
-        estado = $3
+        estado = $3,
+        referencia_origen  = COALESCE($4, referencia_origen),
+        referencia_destino = COALESCE($5, referencia_destino)
       WHERE id = $1
       RETURNING *
       `,
-      [id, body.resumen_alta || null, estadoFinal],
+      [id, body.resumen_alta || null, estadoFinal, body.referencia_origen || null, body.referencia_destino || null],
     );
 
     if (actual[0].cama_id) {

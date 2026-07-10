@@ -2,7 +2,26 @@
 import { useEffect, useState } from 'react';
 import { api, getUsuario } from '../../../lib/api';
 import PageHeader from '../../../components/PageHeader';
+import Modal from '../../../components/Modal';
 import { useToast } from '../../../components/Toast';
+
+const TIPOS_DOC = [
+  { v: 'DNI', t: 'DNI' },
+  { v: 'CE', t: 'Carnet de Extranjería (C.E.)' },
+  { v: 'PASAPORTE', t: 'Pasaporte' },
+  { v: 'CONADIS', t: 'Carnet CONADIS' },
+];
+const CANALES = [
+  { v: 'email', t: 'Correo electrónico' },
+  { v: 'sms', t: 'SMS' },
+  { v: 'whatsapp', t: 'WhatsApp' },
+  { v: 'ninguno', t: 'Sin notificaciones' },
+];
+
+function fmt(iso?: string) {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+}
 
 export default function PacientesPage() {
   // Solo el administrador puede registrar médicos (POST /medicos exige ADMIN).
@@ -12,8 +31,16 @@ export default function PacientesPage() {
   const [especialidades, setEspecialidades] = useState<any[]>([]);
   const toast = useToast();
 
-  const [fp, setFp] = useState({ nombres: '', apellidos: '', fecha_nacimiento: '', telefono: '', dni: '', email: '' });
+  const [fp, setFp] = useState({
+    tipo_documento: 'DNI', dni: '', nombres: '', apellidos: '',
+    fecha_nacimiento: '', telefono: '', email: '', canal_preferido: 'email',
+  });
   const [fm, setFm] = useState({ nombres: '', apellidos: '', especialidad_id: '', cmp: '', cargo: '', nacionalidad: '' });
+
+  // Ficha-red del paciente (paciente como canal de conexión con la red de servicios).
+  const [redAbierta, setRedAbierta] = useState(false);
+  const [red, setRed] = useState<any>(null);
+  const [cargandoRed, setCargandoRed] = useState(false);
 
   async function cargar() {
     try {
@@ -29,7 +56,7 @@ export default function PacientesPage() {
     try {
       await api('/api/pacientes', { method: 'POST', body: JSON.stringify(fp) });
       toast.ok('Paciente registrado', 'El paciente se registró correctamente.');
-      setFp({ nombres: '', apellidos: '', fecha_nacimiento: '', telefono: '', dni: '', email: '' });
+      setFp({ tipo_documento: 'DNI', dni: '', nombres: '', apellidos: '', fecha_nacimiento: '', telefono: '', email: '', canal_preferido: 'email' });
       cargar();
     } catch (e: any) { toast.error('No se pudo registrar', e.message); }
   }
@@ -46,6 +73,17 @@ export default function PacientesPage() {
     } catch (e: any) { toast.error('No se pudo registrar', e.message); }
   }
 
+  async function verRed(p: any) {
+    setRedAbierta(true); setRed(null); setCargandoRed(true);
+    try {
+      const r = await api(`/api/pacientes/${p.id}/red`);
+      setRed(r.data);
+    } catch (e: any) { toast.error('No se pudo cargar la ficha', e.message); }
+    finally { setCargandoRed(false); }
+  }
+
+  const docLabel = fp.tipo_documento === 'DNI' ? 'Número (8 dígitos)' : 'Número (6-12 caracteres)';
+
   return (
     <>
       <PageHeader title="Registro de pacientes y médicos" />
@@ -61,12 +99,22 @@ export default function PacientesPage() {
         {tab === 'paciente' || !puedeRegistrarMedico ? (
           <form onSubmit={crearPaciente}>
             <div className="section-title">Datos</div>
+            <div className="form-row"><label className="label">Tipo de documento</label>
+              <select className="input" value={fp.tipo_documento} onChange={(e) => setFp({ ...fp, tipo_documento: e.target.value })}>
+                {TIPOS_DOC.map((d) => <option key={d.v} value={d.v}>{d.t}</option>)}
+              </select>
+            </div>
+            <div className="form-row"><label className="label">{docLabel}</label><input className="input" value={fp.dni} onChange={(e) => setFp({ ...fp, dni: e.target.value })} /></div>
             <div className="form-row"><label className="label">Nombres</label><input className="input" value={fp.nombres} onChange={(e) => setFp({ ...fp, nombres: e.target.value })} /></div>
             <div className="form-row"><label className="label">Apellidos</label><input className="input" value={fp.apellidos} onChange={(e) => setFp({ ...fp, apellidos: e.target.value })} /></div>
             <div className="form-row"><label className="label">Fecha de nacimiento</label><input className="input" type="date" value={fp.fecha_nacimiento} onChange={(e) => setFp({ ...fp, fecha_nacimiento: e.target.value })} /></div>
             <div className="form-row"><label className="label">Teléfono</label><input className="input" value={fp.telefono} onChange={(e) => setFp({ ...fp, telefono: e.target.value })} /></div>
-            <div className="form-row"><label className="label">Número de documento (DNI)</label><input className="input" value={fp.dni} onChange={(e) => setFp({ ...fp, dni: e.target.value })} /></div>
             <div className="form-row"><label className="label">Correo</label><input className="input" type="email" value={fp.email} onChange={(e) => setFp({ ...fp, email: e.target.value })} /></div>
+            <div className="form-row"><label className="label">Canal de contacto</label>
+              <select className="input" value={fp.canal_preferido} onChange={(e) => setFp({ ...fp, canal_preferido: e.target.value })}>
+                {CANALES.map((c) => <option key={c.v} value={c.v}>{c.t}</option>)}
+              </select>
+            </div>
             <div style={{ textAlign: 'right' }}><button className="btn">Registrar</button></div>
           </form>
         ) : (
@@ -90,15 +138,57 @@ export default function PacientesPage() {
 
       <div className="card table-card" style={{ marginTop: '1.25rem' }}>
         <table>
-          <thead><tr><th>DNI</th><th>Nombre</th><th>Teléfono</th><th>Correo</th></tr></thead>
+          <thead><tr><th>Documento</th><th>Nombre</th><th>Teléfono</th><th>Correo</th><th>Canal</th><th>Red</th></tr></thead>
           <tbody>
             {pacientes.map((p) => (
-              <tr key={p.id}><td>{p.dni}</td><td>{p.nombres} {p.apellidos}</td><td>{p.telefono || '—'}</td><td>{p.email || '—'}</td></tr>
+              <tr key={p.id}>
+                <td><span style={{ color: 'var(--muted)', fontSize: '.75rem' }}>{p.tipo_documento || 'DNI'}</span><br />{p.dni}</td>
+                <td>{p.nombres} {p.apellidos}</td>
+                <td>{p.telefono || '—'}</td>
+                <td>{p.email || '—'}</td>
+                <td>{p.canal_preferido || 'email'}</td>
+                <td><button className="btn btn-secondary" style={{ padding: '.3rem .7rem', fontSize: '.8rem' }} onClick={() => verRed(p)}>Ver red</button></td>
+              </tr>
             ))}
-            {pacientes.length === 0 && <tr><td colSpan={4} style={{ color: 'var(--muted)' }}>Sin registros</td></tr>}
+            {pacientes.length === 0 && <tr><td colSpan={6} style={{ color: 'var(--muted)' }}>Sin registros</td></tr>}
           </tbody>
         </table>
       </div>
+
+      <Modal
+        open={redAbierta}
+        onClose={() => setRedAbierta(false)}
+        size="lg"
+        title="Ficha del paciente en la red"
+        subtitle={red?.paciente ? `${red.paciente.nombres} ${red.paciente.apellidos} — ${red.paciente.tipo_documento || 'DNI'} ${red.paciente.dni}` : undefined}
+      >
+        {cargandoRed && <p style={{ color: 'var(--muted)' }}>Cargando conexiones…</p>}
+        {red && (
+          <div style={{ display: 'grid', gap: '1.25rem' }}>
+            <RedSeccion titulo="Consultas" vacio="Sin consultas registradas" items={red.consultas}
+              render={(c: any) => `${fmt(c.fecha_hora)} · ${c.especialidad || 'Sin especialidad'} · ${c.medico || 'Sin médico'} · ${c.estado}`} />
+            <RedSeccion titulo="Cirugías" vacio="Sin cirugías registradas" items={red.cirugias}
+              render={(c: any) => `${fmt(c.fecha_hora)} · ${c.procedimiento || 'Procedimiento'} · ${c.cirujano || 'Sin cirujano'} · ${c.estado}`} />
+            <RedSeccion titulo="Internamientos" vacio="Sin internamientos" items={red.internamientos}
+              render={(i: any) => `${fmt(i.fecha_ingreso)} · ${i.especialidad || 'Sin especialidad'} · cama ${i.cama || '—'} · ${i.estado}`} />
+            <RedSeccion titulo="Exámenes de laboratorio" vacio="Sin exámenes" items={red.examenes}
+              render={(x: any) => `${fmt(x.solicitado_en)} · ${x.tipo_examen} · ${x.prioridad} · ${x.estado}`} />
+          </div>
+        )}
+      </Modal>
     </>
+  );
+}
+
+function RedSeccion({ titulo, items, vacio, render }: { titulo: string; items?: any[]; vacio: string; render: (x: any) => string }) {
+  return (
+    <div>
+      <div className="section-title" style={{ marginBottom: '.5rem' }}>{titulo} <span style={{ color: 'var(--muted)', fontWeight: 400 }}>({items?.length || 0})</span></div>
+      {items && items.length > 0 ? (
+        <ul style={{ margin: 0, paddingLeft: '1.1rem', display: 'grid', gap: '.35rem' }}>
+          {items.map((it) => <li key={it.id} style={{ fontSize: '.85rem' }}>{render(it)}</li>)}
+        </ul>
+      ) : <p style={{ color: 'var(--muted)', fontSize: '.85rem', margin: 0 }}>{vacio}</p>}
+    </div>
   );
 }

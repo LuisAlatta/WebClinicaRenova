@@ -12,12 +12,15 @@ CREATE TABLE internamientos (
   id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   paciente_id         UUID NOT NULL,
   medico_responsable_id UUID NOT NULL,
+  especialidad_id     INTEGER,                    -- ref maestras.especialidades(id): de qué área se atiende/opera
   cama_id             INTEGER REFERENCES camas(id),
   fecha_ingreso       TIMESTAMPTZ NOT NULL DEFAULT now(),
   fecha_egreso        TIMESTAMPTZ,
   motivo_ingreso      TEXT,
   resumen_alta        TEXT,
-  estado              VARCHAR(30) NOT NULL DEFAULT 'EN_PROCESO',  -- EN_PROCESO | FINALIZADO
+  referencia_origen   TEXT,                       -- de dónde proviene/es trasladado el paciente
+  referencia_destino  TEXT,                       -- a dónde se refiere (emergencia/traslado externo)
+  estado              VARCHAR(30) NOT NULL DEFAULT 'EN_PROCESO',  -- EN_PROCESO | ALTA | ALTA_VOLUNTARIA | REFERIDO_EMERGENCIA
   creado_en           TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX idx_internamientos_paciente ON internamientos(paciente_id);

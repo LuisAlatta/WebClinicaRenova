@@ -3,7 +3,8 @@ SET search_path TO pacientes;
 
 CREATE TABLE pacientes (
   id                UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  dni               VARCHAR(8) UNIQUE NOT NULL,     -- anti-duplicidad por DNI
+  tipo_documento    VARCHAR(12) NOT NULL DEFAULT 'DNI', -- DNI | CE | PASAPORTE | CONADIS
+  dni               VARCHAR(20) UNIQUE NOT NULL,    -- nro. de documento (anti-duplicidad)
   nombres           VARCHAR(120) NOT NULL,
   apellidos         VARCHAR(120) NOT NULL,
   fecha_nacimiento  DATE,
@@ -11,6 +12,7 @@ CREATE TABLE pacientes (
   telefono          VARCHAR(20),
   email             VARCHAR(120),
   direccion         TEXT,
+  canal_preferido   VARCHAR(12) NOT NULL DEFAULT 'email', -- email | sms | whatsapp | ninguno
   creado_en         TIMESTAMPTZ NOT NULL DEFAULT now(),
   actualizado_en    TIMESTAMPTZ NOT NULL DEFAULT now()
 );
