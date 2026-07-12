@@ -118,6 +118,8 @@ export default function FarmaciaPage() {
   const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
   const [f, setF] = useState({ paciente_id: '', medicamento_id: '', cantidad: '', orden_medica: '' });
   const [enviando, setEnviando] = useState(false);
+  const [filtroFechaEgreso, setFiltroFechaEgreso] = useState('');
+  const [filtroFechaIngreso, setFiltroFechaIngreso] = useState('');
   const toast = useToast();
 
   // Estado formulario Nuevo Medicamento
@@ -151,13 +153,16 @@ export default function FarmaciaPage() {
     catch { setPacientes([]); }
   }
   async function cargarMovimientos() {
-    try { const r = await api<{ data: Movimiento[] }>('/api/farmacia/movimientos'); setMovimientos(r.data || []); }
+    try {
+      const r = await api<{ data: Movimiento[] }>('/api/farmacia/movimientos');
+      setMovimientos(r.data || []);
+    }
     catch { setMovimientos([]); }
   }
 
   useEffect(() => { cargarStock(); cargarPacientes(); }, []);
   useEffect(() => { if (tab === 'alertas') cargarAlertas(); }, [tab]);
-  useEffect(() => { if (tab === 'despacho') cargarMovimientos(); }, [tab]);
+  useEffect(() => { if (tab === 'despacho' || tab === 'lote') cargarMovimientos(); }, [tab]);
 
   /* Despacho */
   async function registrarDespacho(e: React.FormEvent) {
@@ -245,6 +250,20 @@ export default function FarmaciaPage() {
   const precioEst = f.medicamento_id && f.cantidad
     ? (stock.find(m => m.id === f.medicamento_id)?.precio_unit || 0) * Number(f.cantidad)
     : null;
+
+  const egresosFiltrados = movimientos.filter(m => m.tipo === 'EGRESO').filter(m => {
+    if (!filtroFechaEgreso) return true;
+    const d = new Date(m.fecha);
+    const tzDate = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().split('T')[0];
+    return tzDate === filtroFechaEgreso;
+  });
+
+  const ingresosFiltrados = movimientos.filter(m => m.tipo === 'INGRESO').filter(m => {
+    if (!filtroFechaIngreso) return true;
+    const d = new Date(m.fecha);
+    const tzDate = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().split('T')[0];
+    return tzDate === filtroFechaIngreso;
+  });
 
   return (
     <>
@@ -500,12 +519,17 @@ export default function FarmaciaPage() {
 
           {/* Panel Historial */}
           <div className="card" style={{ padding: '0' }}>
-            <div style={{ padding: '1.5rem 1.5rem 0', display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-              <div className="icon-badge"><IcoDespacho /></div>
-              <h2 className="section-title" style={{ margin: 0, padding: 0, border: 'none' }}>Historial de Egresos</h2>
+            <div style={{ padding: '1.5rem 1.5rem 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div className="icon-badge"><IcoDespacho /></div>
+                <h2 className="section-title" style={{ margin: 0, padding: 0, border: 'none' }}>Historial de Egresos</h2>
+              </div>
+              <div>
+                <input type="date" className="input" style={{ padding: '0.4rem 0.8rem', width: 'auto' }} value={filtroFechaEgreso} onChange={e => setFiltroFechaEgreso(e.target.value)} />
+              </div>
             </div>
-            {movimientos.length === 0 ? (
-              <div className="empty-state">No hay movimientos recientes</div>
+            {egresosFiltrados.length === 0 ? (
+              <div className="empty-state">{filtroFechaEgreso ? 'No hay egresos en esta fecha' : 'No hay movimientos recientes'}</div>
             ) : (
               <div className="table-container" style={{ maxHeight: '500px', overflowY: 'auto', border: 'none', borderRadius: '0 0 16px 16px' }}>
                 <table className="table">
@@ -518,7 +542,7 @@ export default function FarmaciaPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {movimientos.filter(m => m.tipo === 'EGRESO').map(mov => {
+                    {egresosFiltrados.map(mov => {
                       const paciente = pacientes.find(p => p.id === mov.paciente_id);
                       return (
                         <tr key={mov.id}>
@@ -590,7 +614,7 @@ export default function FarmaciaPage() {
             <div style={{ marginBottom: '1.5rem' }}>
               <button className="btn btn-secondary" type="button" onClick={() => setTab('stock')}>← Volver al stock</button>
             </div>
-              <form id="farmacia-form-lote" onSubmit={registrarLote}>
+            <form id="farmacia-form-lote" onSubmit={registrarLote}>
               <div className="section-title">Datos del lote</div>
 
               <div className="form-row">
@@ -635,12 +659,17 @@ export default function FarmaciaPage() {
 
           {/* Panel Historial de Ingresos */}
           <div className="card" style={{ padding: '0' }}>
-            <div style={{ padding: '1.5rem 1.5rem 0', display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem' }}>
-              <div className="icon-badge" style={{ color: 'var(--ok)' }}><IcoLote /></div>
-              <h2 className="section-title" style={{ margin: 0, padding: 0, border: 'none' }}>Historial de Ingresos</h2>
+            <div style={{ padding: '1.5rem 1.5rem 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '1rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div className="icon-badge" style={{ color: 'var(--ok)' }}><IcoLote /></div>
+                <h2 className="section-title" style={{ margin: 0, padding: 0, border: 'none' }}>Historial de Ingresos</h2>
+              </div>
+              <div>
+                <input type="date" className="input" style={{ padding: '0.4rem 0.8rem', width: 'auto' }} value={filtroFechaIngreso} onChange={e => setFiltroFechaIngreso(e.target.value)} />
+              </div>
             </div>
-            {movimientos.filter(m => m.tipo === 'INGRESO').length === 0 ? (
-              <div className="empty-state">No hay ingresos recientes</div>
+            {ingresosFiltrados.length === 0 ? (
+              <div className="empty-state">{filtroFechaIngreso ? 'No hay ingresos en esta fecha' : 'No hay ingresos recientes'}</div>
             ) : (
               <div className="table-container" style={{ maxHeight: '500px', overflowY: 'auto', border: 'none', borderRadius: '0 0 16px 16px' }}>
                 <table className="table">
@@ -653,7 +682,7 @@ export default function FarmaciaPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {movimientos.filter(m => m.tipo === 'INGRESO').map(mov => (
+                    {ingresosFiltrados.map(mov => (
                       <tr key={mov.id}>
                         <td>{new Date(mov.fecha).toLocaleDateString('es-PE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</td>
                         <td style={{ fontWeight: 600 }}>{mov.medicamento}</td>
