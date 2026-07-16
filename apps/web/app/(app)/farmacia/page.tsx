@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { api, getUsuario } from '../../../lib/api';
 import PageHeader from '../../../components/PageHeader';
 import BuscadorPaciente, { type PacienteLite } from '../../../components/BuscadorPaciente';
+import AutoComplete from '../../../components/AutoComplete';
 import { useToast } from '../../../components/Toast';
 
 /* ─── Tipos ───────────────────────────────────────────── */
@@ -135,6 +136,8 @@ export default function FarmaciaPage() {
   const [pacientes, setPacientes] = useState<Paciente[]>([]);
   const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
   const [pacienteSel, setPacienteSel] = useState<PacienteLite | null>(null);
+  const [resetDesp, setResetDesp] = useState(0); // reinicia autocompletados del despacho
+  const [resetLote, setResetLote] = useState(0); // reinicia autocompletado del lote
   const [f, setF] = useState({ paciente_id: '', medicamento_id: '', cantidad: '', orden_medica: '' });
   const [filtroTipoDoc, setFiltroTipoDoc] = useState('');
   const [enviando, setEnviando] = useState(false);
@@ -196,6 +199,7 @@ export default function FarmaciaPage() {
       toast.ok('Despacho registrado', 'El medicamento se despachó correctamente.');
       setF({ paciente_id: '', medicamento_id: '', cantidad: '', orden_medica: '' });
       setPacienteSel(null);
+      setResetDesp((k) => k + 1);
       cargarStock();
       cargarMovimientos();
     } catch (err: any) { toast.error('No se pudo despachar', err.message || 'Error al registrar el despacho.'); }
@@ -248,6 +252,7 @@ export default function FarmaciaPage() {
       const med = stock.find(m => m.id === fLote.medicamento_id);
       toast.ok('Lote ingresado', `Lote "${fLote.numero_lote.toUpperCase()}" para ${med?.nombre ?? 'el medicamento'}.`);
       setFLote({ medicamento_id: '', numero_lote: '', cantidad: '', fecha_vencimiento: '' });
+      setResetLote((k) => k + 1);
       cargarStock();
       cargarMovimientos();
     } catch (err: any) {
@@ -550,12 +555,16 @@ export default function FarmaciaPage() {
 
               <div className="form-row">
                 <label className="label" htmlFor="desp-med">Medicamento *</label>
-                <select id="desp-med" className="input" value={f.medicamento_id} onChange={setField('medicamento_id')} required>
-                  <option value="">Seleccione un medicamento...</option>
-                  {stock.filter(m => m.activo && m.stock_total > 0).map(m => (
-                    <option key={m.id} value={m.id}>{m.nombre} — Stock: {m.stock_total} | {fmt(m.precio_unit)}</option>
-                  ))}
-                </select>
+                <AutoComplete
+                  key={`desp-med-${resetDesp}`}
+                  items={stock.filter(m => m.activo && m.stock_total > 0)}
+                  getId={(m) => m.id}
+                  getLabel={(m) => `${m.nombre} — Stock: ${m.stock_total} | ${fmt(m.precio_unit)}`}
+                  onSelect={(m) => setF(prev => ({ ...prev, medicamento_id: m ? m.id : '' }))}
+                  selectedId={f.medicamento_id}
+                  placeholder="Escribe o elige el medicamento…"
+                  emptyText="Sin medicamentos con stock"
+                />
               </div>
 
               {precioEst !== null && (
@@ -566,7 +575,8 @@ export default function FarmaciaPage() {
 
               <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
                 <button type="button" className="btn btn-outline"
-                  onClick={() => { setF({ paciente_id: '', medicamento_id: '', cantidad: '', orden_medica: '' }); setFiltroTipoDoc(''); }}>
+                  onClick={() => { setF({ paciente_id: '', medicamento_id: '', cantidad: '', orden_medica: '' }); setPacienteSel(null); setResetDesp(k => k + 1); setFiltroTipoDoc(''); }}>
+
                   Limpiar
                 </button>
                 <button id="farmacia-btn-despacho" className="btn" type="submit" disabled={enviando}>
@@ -691,12 +701,16 @@ export default function FarmaciaPage() {
 
               <div className="form-row">
                 <label className="label" htmlFor="lote-med">Medicamento *</label>
-                <select id="lote-med" className="input" value={fLote.medicamento_id} onChange={setFieldLote('medicamento_id')} required>
-                  <option value="">Seleccione un medicamento...</option>
-                  {stock.filter(m => m.activo).map(m => (
-                    <option key={m.id} value={m.id}>{m.nombre} ({m.codigo}) — Stock actual: {m.stock_total}</option>
-                  ))}
-                </select>
+                <AutoComplete
+                  key={`lote-med-${resetLote}`}
+                  items={stock.filter(m => m.activo)}
+                  getId={(m) => m.id}
+                  getLabel={(m) => `${m.nombre} (${m.codigo}) — Stock actual: ${m.stock_total}`}
+                  onSelect={(m) => setFLote(prev => ({ ...prev, medicamento_id: m ? m.id : '' }))}
+                  selectedId={fLote.medicamento_id}
+                  placeholder="Escribe o elige el medicamento…"
+                  emptyText="Sin medicamentos"
+                />
               </div>
 
               {([
@@ -719,7 +733,7 @@ export default function FarmaciaPage() {
 
               <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
                 <button type="button" className="btn btn-outline"
-                  onClick={() => { setFLote({ medicamento_id: '', numero_lote: '', cantidad: '', fecha_vencimiento: '' }); }}>
+                  onClick={() => { setFLote({ medicamento_id: '', numero_lote: '', cantidad: '', fecha_vencimiento: '' }); setResetLote(k => k + 1); }}>
                   Limpiar
                 </button>
                 <button id="farmacia-btn-lote" className="btn" type="submit" disabled={registrandoLote}>
