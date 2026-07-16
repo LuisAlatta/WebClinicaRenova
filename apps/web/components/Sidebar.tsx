@@ -25,6 +25,7 @@ const items: NavItem[] = [
 ];
 
 // roles: [] => solo ADMIN (ver `puedeVer`).
+const itemUsuarios: NavItem = { href: '/usuarios', label: 'Usuarios', roles: [], icon: I('M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2|M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z|M23 21v-2a4 4 0 0 0-3-3.87|M16 3.13a4 4 0 0 1 0 7.75') };
 const itemAuditoria: NavItem = { href: '/auditoria', label: 'Auditoría', roles: [], icon: I('M9 2h6a1 1 0 0 1 1 1v1h2a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2V3a1 1 0 0 1 1-1z|M9 12h6|M9 16h4') };
 
 const itemsBottom: NavItem[] = [
@@ -75,6 +76,7 @@ export default function Sidebar() {
       <nav className="nav">
         {items.filter(puedeVer).map(Item)}
         <div className="sep" />
+        {puedeVer(itemUsuarios) && Item(itemUsuarios)}
         {puedeVer(itemAuditoria) && Item(itemAuditoria)}
         {itemsBottom.filter(puedeVer).map(Item)}
       </nav>
