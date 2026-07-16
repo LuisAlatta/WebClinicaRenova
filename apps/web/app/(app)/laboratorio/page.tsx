@@ -4,6 +4,7 @@ import { api, getUsuario } from '../../../lib/api';
 import PageHeader from '../../../components/PageHeader';
 import Modal from '../../../components/Modal';
 import BuscadorPaciente, { type PacienteLite } from '../../../components/BuscadorPaciente';
+import AutoComplete from '../../../components/AutoComplete';
 import { useToast } from '../../../components/Toast';
 
 /** Formatea una clave tipo "perfil_lipidico" -> "Perfil lipidico". */
@@ -53,6 +54,7 @@ export default function LaboratorioPage() {
   const toast = useToast();
 
   const [pacienteSel, setPacienteSel] = useState<PacienteLite | null>(null);
+  const [resetKey, setResetKey] = useState(0); // fuerza limpiar los autocompletados tras enviar
   const [f, setF] = useState({ paciente_id: '', medico_id: '', tipo_examen: '', prioridad: 'NORMAL' });
   // Solo el médico (y el admin) puede solicitar exámenes; el laboratorista solo consulta/recibe resultados.
   const rol = getUsuario()?.rol;
@@ -107,6 +109,7 @@ export default function LaboratorioPage() {
       toast.ok('Solicitud registrada', 'El examen fue solicitado correctamente.');
       setF({ paciente_id: '', medico_id: '', tipo_examen: '', prioridad: 'NORMAL' });
       setPacienteSel(null);
+      setResetKey((k) => k + 1);
       setVista('lista');
       cargarLista();
     } catch (e: any) {
@@ -176,7 +179,7 @@ export default function LaboratorioPage() {
 
             <div className="form-row">
               <label className="label">Paciente</label>
-              <BuscadorPaciente onSelect={setPacienteSel} placeholder="DNI, C.E., pasaporte o nombre…" />
+              <BuscadorPaciente key={`pac-${resetKey}`} onSelect={setPacienteSel} placeholder="DNI, C.E., pasaporte o nombre…" />
               {pacienteSel && (
                 <div style={{ marginTop: '.5rem', fontSize: '.85rem', color: 'var(--ok)' }}>
                   Seleccionado: <strong>{pacienteSel.nombres} {pacienteSel.apellidos}</strong> — {pacienteSel.tipo_documento || 'DNI'} {pacienteSel.dni}
@@ -186,10 +189,15 @@ export default function LaboratorioPage() {
 
             <div className="form-row">
               <label className="label">Médico solicitante</label>
-              <select className="input" value={f.medico_id} onChange={(e) => setF({ ...f, medico_id: e.target.value })} required>
-                <option value="">Seleccione el médico…</option>
-                {medicos.map((m) => <option key={m.id} value={m.id}>{m.nombres} {m.apellidos}{m.cmp ? ` (${m.cmp})` : ''}</option>)}
-              </select>
+              <AutoComplete
+                key={`med-${resetKey}`}
+                items={medicos}
+                getId={(m) => m.id}
+                getLabel={(m) => `${m.nombres} ${m.apellidos}${m.cmp ? ` (${m.cmp})` : ''}`}
+                onSelect={(m) => setF((prev) => ({ ...prev, medico_id: m ? m.id : '' }))}
+                placeholder="Escribe o elige el médico…"
+                emptyText="Sin médicos que coincidan"
+              />
             </div>
 
             <div className="form-row">
