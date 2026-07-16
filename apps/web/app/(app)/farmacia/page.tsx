@@ -187,12 +187,12 @@ export default function FarmaciaPage() {
   /* Despacho */
   async function registrarDespacho(e: React.FormEvent) {
     e.preventDefault();
-    if (!pacienteSel || !f.medicamento_id || !f.cantidad) {
+    if (!f.paciente_id || !f.medicamento_id || !f.cantidad) {
       toast.error('Datos incompletos', 'Selecciona el paciente y completa medicamento y cantidad.'); return;
     }
     setEnviando(true);
     try {
-      await api('/api/farmacia/despachos', { method: 'POST', body: JSON.stringify({ paciente_id: pacienteSel.id, medicamento_id: f.medicamento_id, cantidad: Number(f.cantidad), orden_medica: f.orden_medica || undefined }) });
+      await api('/api/farmacia/despachos', { method: 'POST', body: JSON.stringify({ paciente_id: f.paciente_id, medicamento_id: f.medicamento_id, cantidad: Number(f.cantidad), orden_medica: f.orden_medica || undefined }) });
       toast.ok('Despacho registrado', 'El medicamento se despachó correctamente.');
       setF({ paciente_id: '', medicamento_id: '', cantidad: '', orden_medica: '' });
       setPacienteSel(null);
