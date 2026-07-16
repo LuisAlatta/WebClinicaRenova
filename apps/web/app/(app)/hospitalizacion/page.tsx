@@ -967,13 +967,15 @@ export default function HospitalizacionPage() {
       {/* HP0026 - Modal ingreso */}
       {modalIngreso && (
         <Modal titulo="Registrar ingreso hospitalario" onClose={() => setModalIngreso(false)}>
-          <label style={fieldLabel}>Paciente (busca por DNI, C.E. o nombre)</label>
-          <BuscadorPaciente onSelect={elegirPacienteBuscado} placeholder="DNI, C.E., pasaporte o nombre…" />
-          {form.pacienteId && (
-            <div style={{ margin: '.4rem 0 .7rem', fontSize: '.85rem', color: 'var(--ok)' }}>
-              Seleccionado: <strong>{form.nombres}</strong>{form.dni ? ` — ${form.dni}` : ''}
-            </div>
-          )}
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={fieldLabel}>Paciente (busca por DNI, C.E. o nombre)</label>
+            <BuscadorPaciente onSelect={elegirPacienteBuscado} placeholder="DNI, C.E., pasaporte o nombre…" />
+            {form.pacienteId && (
+              <div style={{ marginTop: '.4rem', fontSize: '.85rem', color: 'var(--ok)' }}>
+                Seleccionado: <strong>{form.nombres}</strong>{form.dni ? ` — ${form.dni}` : ''}
+              </div>
+            )}
+          </div>
 
           <input
             style={input}
@@ -1495,7 +1497,7 @@ const iconButton = {
 const input = {
   width: '100%',
   padding: '.7rem .9rem',
-  marginBottom: '.7rem',
+  marginBottom: '.9rem',
   border: '1px solid transparent',
   borderRadius: 10,
   background: 'var(--input)',
