@@ -27,28 +27,55 @@ interface BuscadorPacienteProps {
 export default function BuscadorPaciente({ onSelect, placeholder, autoFocus }: BuscadorPacienteProps) {
   const [texto, setTexto] = useState('');
   const [sugerencias, setSugerencias] = useState<PacienteLite[]>([]);
+  const [todos, setTodos] = useState<PacienteLite[]>([]);
   const [abierto, setAbierto] = useState(false);
   const [buscando, setBuscando] = useState(false);
   const [error, setError] = useState('');
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const elegidoLabel = useRef<string>(''); // etiqueta del paciente ya elegido (evita re-buscar)
 
-  // Autocompletado con debounce (sugerencias mientras se escribe).
+  // Carga (una sola vez) el listado completo de pacientes para el desplegable.
+  async function cargarTodos(): Promise<PacienteLite[]> {
+    if (todos.length) return todos;
+    try {
+      const r = await api('/api/pacientes');
+      const lista: PacienteLite[] = r.data || [];
+      setTodos(lista);
+      return lista;
+    } catch { return []; }
+  }
+
+  // Autocompletado con debounce.
+  //  - Campo vacío: muestra TODOS los pacientes.
+  //  - Con texto: filtra en el servidor por DNI o nombre.
   useEffect(() => {
     if (timer.current) clearTimeout(timer.current);
-    if (texto.trim().length < 2) { setSugerencias([]); return; }
+    const q = texto.trim();
+    if (q === elegidoLabel.current) return; // no re-buscar justo después de elegir
+    if (q.length === 0) { cargarTodos().then((l) => setSugerencias(l)); return; }
     timer.current = setTimeout(async () => {
       try {
-        const r = await api(`/api/pacientes?q=${encodeURIComponent(texto.trim())}`);
+        const r = await api(`/api/pacientes?q=${encodeURIComponent(q)}`);
         setSugerencias(r.data || []);
         setAbierto(true);
       } catch { /* silencioso: el usuario puede usar el botón Buscar */ }
-    }, 300);
+    }, 250);
     return () => { if (timer.current) clearTimeout(timer.current); };
   }, [texto]);
 
+  async function abrirLista() {
+    setAbierto(true);
+    if (texto.trim().length === 0) {
+      const l = await cargarTodos();
+      setSugerencias(l);
+    }
+  }
+
   function elegir(p: PacienteLite) {
     onSelect(p);
-    setTexto(`${p.nombres} ${p.apellidos} — ${p.dni}`);
+    const label = `${p.nombres} ${p.apellidos} — ${p.dni}`;
+    elegidoLabel.current = label;
+    setTexto(label);
     setAbierto(false);
     setError('');
   }
@@ -79,8 +106,9 @@ export default function BuscadorPaciente({ onSelect, placeholder, autoFocus }: B
           value={texto}
           autoFocus={autoFocus}
           placeholder={placeholder || 'Buscar por DNI o nombre…'}
-          onChange={(e) => setTexto(e.target.value)}
-          onFocus={() => sugerencias.length && setAbierto(true)}
+          onChange={(e) => { elegidoLabel.current = ''; setTexto(e.target.value); setAbierto(true); }}
+          onFocus={abrirLista}
+          onBlur={() => setTimeout(() => setAbierto(false), 150)}
           onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), buscar())}
         />
         <button className="btn btn-secondary" type="button" onClick={buscar} disabled={buscando}>
