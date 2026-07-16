@@ -13,13 +13,30 @@ interface Medicamento {
 interface AlertaMedicamento { id: string; codigo: string; nombre: string; stock_total: number; stock_minimo: number; }
 interface AlertaLote { medicamento: string; numero_lote: string; cantidad: number; fecha_vencimiento: string; dias_restantes: number; }
 interface Alertas { bajo_minimo: AlertaMedicamento[]; por_vencer: AlertaLote[]; }
-interface Paciente { id: string; dni: string; nombres: string; apellidos: string; }
+interface Paciente { id: string; tipo_documento: string; dni: string; nombres: string; apellidos: string; }
 interface Movimiento { id: string; medicamento: string; tipo: 'INGRESO' | 'EGRESO'; cantidad: number; motivo: string; fecha: string; paciente_id?: string; }
 type Tab = 'stock' | 'alertas' | 'despacho' | 'nuevo' | 'lote';
 
 /* ─── Helpers ─────────────────────────────────────────── */
 const fmt = (n: number) => new Intl.NumberFormat('es-PE', { style: 'currency', currency: 'PEN' }).format(n);
 const fmtFecha = (iso: string) => new Date(iso).toLocaleDateString('es-PE', { day: '2-digit', month: 'short', year: 'numeric' });
+
+/** Etiqueta legible para cada tipo de documento */
+const LABEL_TIPO_DOC: Record<string, string> = {
+  DNI:       'DNI',
+  CE:        'C. Extranjería',
+  PASAPORTE: 'Pasaporte',
+  CONADIS:   'C. CONADIS',
+};
+/** Color de fondo del badge por tipo de documento */
+const COLOR_TIPO_DOC: Record<string, string> = {
+  DNI:       '#3b82f6', // azul
+  CE:        '#10b981', // verde
+  PASAPORTE: '#f59e0b', // naranja
+  CONADIS:   '#8b5cf6', // morado
+};
+const labelTipoDoc  = (tipo: string) => LABEL_TIPO_DOC[tipo]  ?? tipo;
+const colorTipoDoc  = (tipo: string) => COLOR_TIPO_DOC[tipo]  ?? '#64748b';
 const estadoBadge = (m: Medicamento) => {
   if (!m.activo) return { cls: 'soft', txt: 'Inactivo' };
   if (m.stock_total === 0) return { cls: 'danger', txt: 'Sin stock' };
@@ -119,6 +136,7 @@ export default function FarmaciaPage() {
   const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
   const [pacienteSel, setPacienteSel] = useState<PacienteLite | null>(null);
   const [f, setF] = useState({ paciente_id: '', medicamento_id: '', cantidad: '', orden_medica: '' });
+  const [filtroTipoDoc, setFiltroTipoDoc] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [filtroFechaEgreso, setFiltroFechaEgreso] = useState('');
   const [filtroFechaIngreso, setFiltroFechaIngreso] = useState('');
@@ -472,14 +490,52 @@ export default function FarmaciaPage() {
             <form id="farmacia-form-despacho" onSubmit={registrarDespacho}>
               <div className="section-title">Datos del despacho</div>
 
+              {/* — Filtro por tipo de documento — */}
+              <div className="form-row">
+                <label className="label" htmlFor="desp-tipo-doc">Tipo de documento</label>
+                <div style={{ position: 'relative' }}>
+                  <select
+                    id="desp-tipo-doc"
+                    className="input"
+                    value={filtroTipoDoc}
+                    onChange={e => { setFiltroTipoDoc(e.target.value); setF(p => ({ ...p, paciente_id: '' })); }}
+                  >
+                    <option value="">Todos los tipos</option>
+                    {(['DNI', 'CE', 'PASAPORTE', 'CONADIS'] as const).map(tipo => (
+                      <option key={tipo} value={tipo}>{labelTipoDoc(tipo)}</option>
+                    ))}
+                  </select>
+                  {filtroTipoDoc && (
+                    <span style={{
+                      position: 'absolute', right: 36, top: '50%', transform: 'translateY(-50%)',
+                      fontSize: '0.72rem', fontWeight: 700,
+                      padding: '2px 8px', borderRadius: 4,
+                      background: colorTipoDoc(filtroTipoDoc), color: '#fff',
+                      pointerEvents: 'none',
+                    }}>
+                      {labelTipoDoc(filtroTipoDoc)}
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* — Selector de paciente (filtrado) — */}
               <div className="form-row">
                 <label className="label" htmlFor="desp-paciente">Paciente *</label>
-                <BuscadorPaciente onSelect={setPacienteSel} placeholder="DNI, C.E., pasaporte o nombre…" />
-                {pacienteSel && (
-                  <div style={{ marginTop: '.5rem', fontSize: '.85rem', color: 'var(--ok)' }}>
-                    Seleccionado: <strong>{pacienteSel.nombres} {pacienteSel.apellidos}</strong> — {pacienteSel.tipo_documento || 'DNI'} {pacienteSel.dni}
-                  </div>
-                )}
+                <select id="desp-paciente" className="input" value={f.paciente_id} onChange={setField('paciente_id')} required>
+                  <option value="">
+                    {filtroTipoDoc
+                      ? `Seleccione paciente con ${labelTipoDoc(filtroTipoDoc)}...`
+                      : 'Seleccione un paciente...'}
+                  </option>
+                  {pacientes
+                    .filter(p => !filtroTipoDoc || (p.tipo_documento ?? 'DNI') === filtroTipoDoc)
+                    .map(p => (
+                      <option key={p.id} value={p.id}>
+                        [{labelTipoDoc(p.tipo_documento ?? 'DNI')}] {p.dni} — {p.nombres} {p.apellidos}
+                      </option>
+                    ))}
+                </select>
               </div>
 
               {([
@@ -510,7 +566,7 @@ export default function FarmaciaPage() {
 
               <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
                 <button type="button" className="btn btn-outline"
-                  onClick={() => { setF({ paciente_id: '', medicamento_id: '', cantidad: '', orden_medica: '' }); setPacienteSel(null); }}>
+                  onClick={() => { setF({ paciente_id: '', medicamento_id: '', cantidad: '', orden_medica: '' }); setFiltroTipoDoc(''); }}>
                   Limpiar
                 </button>
                 <button id="farmacia-btn-despacho" className="btn" type="submit" disabled={enviando}>
@@ -556,6 +612,19 @@ export default function FarmaciaPage() {
                             {paciente ? (
                               <div>
                                 <span style={{ fontWeight: 700, fontSize: '0.9rem' }}>{paciente.dni}</span>
+                                {' '}
+                                <span style={{
+                                  display: 'inline-block',
+                                  fontSize: '0.68rem',
+                                  fontWeight: 700,
+                                  padding: '1px 6px',
+                                  borderRadius: 4,
+                                  background: colorTipoDoc(paciente.tipo_documento ?? 'DNI'),
+                                  color: '#fff',
+                                  verticalAlign: 'middle',
+                                }}>
+                                  {labelTipoDoc(paciente.tipo_documento ?? 'DNI')}
+                                </span>
                                 <br />
                                 <span style={{ color: 'var(--text-light)', fontSize: '0.82rem' }}>{paciente.nombres} {paciente.apellidos}</span>
                               </div>

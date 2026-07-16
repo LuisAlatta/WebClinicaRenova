@@ -87,6 +87,13 @@ INSERT INTO pacientes.pacientes (dni, nombres, apellidos, fecha_nacimiento, sexo
   ('60123456','Pedro','Condori Apaza','2001-02-20','M','998877665','pedro.c@gmail.com'),
   ('41239876','Lucía','Vargas Ríos','1978-07-30','F','977665544','lucia.v@gmail.com');
 
+-- Pacientes adicionales con tipos de documento alternativos (demo multi-tipo)
+INSERT INTO pacientes.pacientes (tipo_documento, dni, nombres, apellidos, fecha_nacimiento, sexo, telefono, email) VALUES
+  ('CE',        'A123456789', 'John',    'Smith',       '1988-03-15', 'M', '991234567', 'john.s@gmail.com'),
+  ('PASAPORTE', 'AB123456',   'Marie',   'Dupont',      '1992-09-22', 'F', '992345678', 'marie.d@gmail.com'),
+  ('CONADIS',   'C00123456',  'Ana',     'Torres Ríos', '1975-12-01', 'F', '993456789', 'ana.t@gmail.com');
+
+
 -- ---------- FARMACIA ----------
 INSERT INTO farmacia.medicamentos (codigo, nombre, presentacion, stock_minimo, precio_unit) VALUES
   ('MED-001','Paracetamol 500mg','Caja x 100 tab', 50, 0.20),
