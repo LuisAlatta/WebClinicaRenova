@@ -22,6 +22,9 @@ function fmt(iso?: string) {
   if (!iso) return '—';
   return new Date(iso).toLocaleString('es-PE', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
+function hoyISO() {
+  return new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD en zona local
+}
 
 export default function PacientesPage() {
   // Solo el administrador puede registrar médicos (POST /medicos exige ADMIN).
@@ -33,9 +36,9 @@ export default function PacientesPage() {
 
   const [fp, setFp] = useState({
     tipo_documento: 'DNI', dni: '', nombres: '', apellidos: '',
-    fecha_nacimiento: '', telefono: '', email: '', canal_preferido: 'email',
+    fecha_nacimiento: '', sexo: '', telefono: '', email: '', direccion: '', canal_preferido: 'email',
   });
-  const [fm, setFm] = useState({ nombres: '', apellidos: '', especialidad_id: '', cmp: '', cargo: '', nacionalidad: '' });
+  const [fm, setFm] = useState({ nombres: '', apellidos: '', especialidad_id: '', cmp: '' });
 
   // Ficha-red del paciente (paciente como canal de conexión con la red de servicios).
   const [redAbierta, setRedAbierta] = useState(false);
@@ -56,7 +59,7 @@ export default function PacientesPage() {
     try {
       await api('/api/pacientes', { method: 'POST', body: JSON.stringify(fp) });
       toast.ok('Paciente registrado', 'El paciente se registró correctamente.');
-      setFp({ tipo_documento: 'DNI', dni: '', nombres: '', apellidos: '', fecha_nacimiento: '', telefono: '', email: '', canal_preferido: 'email' });
+      setFp({ tipo_documento: 'DNI', dni: '', nombres: '', apellidos: '', fecha_nacimiento: '', sexo: '', telefono: '', email: '', direccion: '', canal_preferido: 'email' });
       cargar();
     } catch (e: any) { toast.error('No se pudo registrar', e.message); }
   }
@@ -69,7 +72,7 @@ export default function PacientesPage() {
         body: JSON.stringify({ ...fm, especialidad_id: fm.especialidad_id ? Number(fm.especialidad_id) : null }),
       });
       toast.ok('Médico registrado', 'El médico se registró correctamente.');
-      setFm({ nombres: '', apellidos: '', especialidad_id: '', cmp: '', cargo: '', nacionalidad: '' });
+      setFm({ nombres: '', apellidos: '', especialidad_id: '', cmp: '' });
     } catch (e: any) { toast.error('No se pudo registrar', e.message); }
   }
 
@@ -82,7 +85,11 @@ export default function PacientesPage() {
     finally { setCargandoRed(false); }
   }
 
-  const docLabel = fp.tipo_documento === 'DNI' ? 'Número (8 dígitos)' : 'Número (6-12 caracteres)';
+  const docLabel =
+    fp.tipo_documento === 'DNI' ? 'Número (8 dígitos)'
+    : fp.tipo_documento === 'CE' ? 'Número (9 a 12 caracteres)'
+    : 'Número (6 a 12 caracteres)';
+  const esDni = fp.tipo_documento === 'DNI';
 
   return (
     <>
@@ -104,12 +111,32 @@ export default function PacientesPage() {
                 {TIPOS_DOC.map((d) => <option key={d.v} value={d.v}>{d.t}</option>)}
               </select>
             </div>
-            <div className="form-row"><label className="label">{docLabel}</label><input className="input" value={fp.dni} onChange={(e) => setFp({ ...fp, dni: e.target.value })} /></div>
+            <div className="form-row"><label className="label">{docLabel}</label>
+              <input
+                className="input"
+                value={fp.dni}
+                inputMode={esDni ? 'numeric' : 'text'}
+                maxLength={esDni ? 8 : 12}
+                placeholder={esDni ? '12345678' : 'Ej. X1234567'}
+                onChange={(e) => {
+                  const v = esDni ? e.target.value.replace(/\D/g, '') : e.target.value.replace(/[^A-Za-z0-9]/g, '');
+                  setFp({ ...fp, dni: v });
+                }}
+              />
+            </div>
             <div className="form-row"><label className="label">Nombres</label><input className="input" value={fp.nombres} onChange={(e) => setFp({ ...fp, nombres: e.target.value })} /></div>
             <div className="form-row"><label className="label">Apellidos</label><input className="input" value={fp.apellidos} onChange={(e) => setFp({ ...fp, apellidos: e.target.value })} /></div>
-            <div className="form-row"><label className="label">Fecha de nacimiento</label><input className="input" type="date" value={fp.fecha_nacimiento} onChange={(e) => setFp({ ...fp, fecha_nacimiento: e.target.value })} /></div>
-            <div className="form-row"><label className="label">Teléfono</label><input className="input" value={fp.telefono} onChange={(e) => setFp({ ...fp, telefono: e.target.value })} /></div>
-            <div className="form-row"><label className="label">Correo</label><input className="input" type="email" value={fp.email} onChange={(e) => setFp({ ...fp, email: e.target.value })} /></div>
+            <div className="form-row"><label className="label">Fecha de nacimiento</label><input className="input" type="date" max={hoyISO()} value={fp.fecha_nacimiento} onChange={(e) => setFp({ ...fp, fecha_nacimiento: e.target.value })} /></div>
+            <div className="form-row"><label className="label">Sexo</label>
+              <select className="input" value={fp.sexo} onChange={(e) => setFp({ ...fp, sexo: e.target.value })}>
+                <option value="">Sin especificar</option>
+                <option value="M">Masculino</option>
+                <option value="F">Femenino</option>
+              </select>
+            </div>
+            <div className="form-row"><label className="label">Teléfono</label><input className="input" type="tel" inputMode="numeric" maxLength={15} placeholder="9 dígitos" value={fp.telefono} onChange={(e) => setFp({ ...fp, telefono: e.target.value.replace(/[^\d]/g, '') })} /></div>
+            <div className="form-row"><label className="label">Correo</label><input className="input" type="email" placeholder="paciente@correo.com" value={fp.email} onChange={(e) => setFp({ ...fp, email: e.target.value })} /></div>
+            <div className="form-row"><label className="label">Dirección</label><input className="input" placeholder="Av. / Jr. / Calle, número, distrito" value={fp.direccion} onChange={(e) => setFp({ ...fp, direccion: e.target.value })} /></div>
             <div className="form-row"><label className="label">Canal de contacto</label>
               <select className="input" value={fp.canal_preferido} onChange={(e) => setFp({ ...fp, canal_preferido: e.target.value })}>
                 {CANALES.map((c) => <option key={c.v} value={c.v}>{c.t}</option>)}
@@ -125,9 +152,7 @@ export default function PacientesPage() {
                 {especialidades.map((e) => <option key={e.id} value={e.id}>{e.nombre}</option>)}
               </select>
             </div>
-            <div className="form-row"><label className="label">CMP</label><input className="input" value={fm.cmp} onChange={(e) => setFm({ ...fm, cmp: e.target.value })} /></div>
-            <div className="form-row"><label className="label">Cargo</label><input className="input" value={fm.cargo} onChange={(e) => setFm({ ...fm, cargo: e.target.value })} /></div>
-            <div className="form-row"><label className="label">Nacionalidad</label><input className="input" value={fm.nacionalidad} onChange={(e) => setFm({ ...fm, nacionalidad: e.target.value })} /></div>
+            <div className="form-row"><label className="label">CMP (colegiatura)</label><input className="input" placeholder="N° de colegiatura médica" value={fm.cmp} onChange={(e) => setFm({ ...fm, cmp: e.target.value })} /></div>
             <div className="section-title">Datos</div>
             <div className="form-row"><label className="label">Nombres</label><input className="input" value={fm.nombres} onChange={(e) => setFm({ ...fm, nombres: e.target.value })} /></div>
             <div className="form-row"><label className="label">Apellidos</label><input className="input" value={fm.apellidos} onChange={(e) => setFm({ ...fm, apellidos: e.target.value })} /></div>

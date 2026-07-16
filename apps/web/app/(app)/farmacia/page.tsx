@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { api, getUsuario } from '../../../lib/api';
 import PageHeader from '../../../components/PageHeader';
+import BuscadorPaciente, { type PacienteLite } from '../../../components/BuscadorPaciente';
 import { useToast } from '../../../components/Toast';
 
 /* ─── Tipos ───────────────────────────────────────────── */
@@ -116,6 +117,7 @@ export default function FarmaciaPage() {
   const [loadingAlertas, setLoadingAlertas] = useState(false);
   const [pacientes, setPacientes] = useState<Paciente[]>([]);
   const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
+  const [pacienteSel, setPacienteSel] = useState<PacienteLite | null>(null);
   const [f, setF] = useState({ paciente_id: '', medicamento_id: '', cantidad: '', orden_medica: '' });
   const [enviando, setEnviando] = useState(false);
   const [filtroFechaEgreso, setFiltroFechaEgreso] = useState('');
@@ -167,14 +169,15 @@ export default function FarmaciaPage() {
   /* Despacho */
   async function registrarDespacho(e: React.FormEvent) {
     e.preventDefault();
-    if (!f.paciente_id || !f.medicamento_id || !f.cantidad) {
-      toast.error('Datos incompletos', 'Completa todos los campos requeridos.'); return;
+    if (!pacienteSel || !f.medicamento_id || !f.cantidad) {
+      toast.error('Datos incompletos', 'Selecciona el paciente y completa medicamento y cantidad.'); return;
     }
     setEnviando(true);
     try {
-      await api('/api/farmacia/despachos', { method: 'POST', body: JSON.stringify({ paciente_id: f.paciente_id, medicamento_id: f.medicamento_id, cantidad: Number(f.cantidad), orden_medica: f.orden_medica || undefined }) });
+      await api('/api/farmacia/despachos', { method: 'POST', body: JSON.stringify({ paciente_id: pacienteSel.id, medicamento_id: f.medicamento_id, cantidad: Number(f.cantidad), orden_medica: f.orden_medica || undefined }) });
       toast.ok('Despacho registrado', 'El medicamento se despachó correctamente.');
       setF({ paciente_id: '', medicamento_id: '', cantidad: '', orden_medica: '' });
+      setPacienteSel(null);
       cargarStock();
       cargarMovimientos();
     } catch (err: any) { toast.error('No se pudo despachar', err.message || 'Error al registrar el despacho.'); }
@@ -471,12 +474,12 @@ export default function FarmaciaPage() {
 
               <div className="form-row">
                 <label className="label" htmlFor="desp-paciente">Paciente *</label>
-                <select id="desp-paciente" className="input" value={f.paciente_id} onChange={setField('paciente_id')} required>
-                  <option value="">Seleccione un paciente...</option>
-                  {pacientes.map(p => (
-                    <option key={p.id} value={p.id}>{p.dni} - {p.nombres} {p.apellidos}</option>
-                  ))}
-                </select>
+                <BuscadorPaciente onSelect={setPacienteSel} placeholder="DNI, C.E., pasaporte o nombre…" />
+                {pacienteSel && (
+                  <div style={{ marginTop: '.5rem', fontSize: '.85rem', color: 'var(--ok)' }}>
+                    Seleccionado: <strong>{pacienteSel.nombres} {pacienteSel.apellidos}</strong> — {pacienteSel.tipo_documento || 'DNI'} {pacienteSel.dni}
+                  </div>
+                )}
               </div>
 
               {([
@@ -507,7 +510,7 @@ export default function FarmaciaPage() {
 
               <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
                 <button type="button" className="btn btn-outline"
-                  onClick={() => { setF({ paciente_id: '', medicamento_id: '', cantidad: '', orden_medica: '' }); }}>
+                  onClick={() => { setF({ paciente_id: '', medicamento_id: '', cantidad: '', orden_medica: '' }); setPacienteSel(null); }}>
                   Limpiar
                 </button>
                 <button id="farmacia-btn-despacho" className="btn" type="submit" disabled={enviando}>

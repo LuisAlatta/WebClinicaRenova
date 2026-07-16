@@ -10,6 +10,8 @@ export interface PacienteLite {
   apellidos: string;
   telefono?: string;
   email?: string;
+  fecha_nacimiento?: string;
+  sexo?: string;
 }
 
 interface BuscadorPacienteProps {
