@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { api, getUsuario } from '../../../lib/api';
 import PageHeader from '../../../components/PageHeader';
 import Modal from '../../../components/Modal';
+import BuscadorPaciente, { type PacienteLite } from '../../../components/BuscadorPaciente';
 import { useToast } from '../../../components/Toast';
 
 /** Formatea una clave tipo "perfil_lipidico" -> "Perfil lipidico". */
@@ -47,11 +48,11 @@ export default function LaboratorioPage() {
   const [vista, setVista] = useState<'lista' | 'form'>('lista');
   const [data, setData] = useState<any[]>([]);
   const [busca, setBusca] = useState('');
-  const [pacientes, setPacientes] = useState<any[]>([]);
   const [medicos, setMedicos] = useState<any[]>([]);
   const [verResultado, setVerResultado] = useState<any | null>(null);
   const toast = useToast();
 
+  const [pacienteSel, setPacienteSel] = useState<PacienteLite | null>(null);
   const [f, setF] = useState({ paciente_id: '', medico_id: '', tipo_examen: '', prioridad: 'NORMAL' });
   // Solo el médico (y el admin) puede solicitar exámenes; el laboratorista solo consulta/recibe resultados.
   const rol = getUsuario()?.rol;
@@ -88,18 +89,24 @@ export default function LaboratorioPage() {
     setData(r.data || []);
   }
   async function cargarCombos() {
-    const [p, m] = await Promise.all([api('/api/pacientes'), api('/api/pacientes/medicos')]);
-    setPacientes(p.data || []);
+    const m = await api('/api/pacientes/medicos');
     setMedicos(m.data || []);
   }
   useEffect(() => { cargarLista().catch(() => {}); cargarCombos().catch(() => {}); }, []);
 
   async function solicitar(e: React.FormEvent) {
     e.preventDefault();
+    if (!pacienteSel) { toast.error('Falta el paciente', 'Busca y selecciona un paciente por su documento o nombre.'); return; }
+    if (!f.medico_id) { toast.error('Falta el médico', 'Selecciona el médico solicitante.'); return; }
+    if (!f.tipo_examen.trim()) { toast.error('Falta el examen', 'Indica el tipo de examen a solicitar.'); return; }
     try {
-      await api('/api/laboratorio/examenes', { method: 'POST', body: JSON.stringify(f) });
+      await api('/api/laboratorio/examenes', {
+        method: 'POST',
+        body: JSON.stringify({ ...f, paciente_id: pacienteSel.id }),
+      });
       toast.ok('Solicitud registrada', 'El examen fue solicitado correctamente.');
       setF({ paciente_id: '', medico_id: '', tipo_examen: '', prioridad: 'NORMAL' });
+      setPacienteSel(null);
       setVista('lista');
       cargarLista();
     } catch (e: any) {
@@ -168,18 +175,20 @@ export default function LaboratorioPage() {
             <div className="section-title">Formulario de solicitud de examen</div>
 
             <div className="form-row">
-              <label className="label">Id Paciente</label>
-              <select className="input" value={f.paciente_id} onChange={(e) => setF({ ...f, paciente_id: e.target.value })} required>
-                <option value="">Buscar paciente...</option>
-                {pacientes.map((p) => <option key={p.id} value={p.id}>{p.nombres} {p.apellidos} — {p.dni}</option>)}
-              </select>
+              <label className="label">Paciente</label>
+              <BuscadorPaciente onSelect={setPacienteSel} placeholder="DNI, C.E., pasaporte o nombre…" />
+              {pacienteSel && (
+                <div style={{ marginTop: '.5rem', fontSize: '.85rem', color: 'var(--ok)' }}>
+                  Seleccionado: <strong>{pacienteSel.nombres} {pacienteSel.apellidos}</strong> — {pacienteSel.tipo_documento || 'DNI'} {pacienteSel.dni}
+                </div>
+              )}
             </div>
 
             <div className="form-row">
-              <label className="label">Id Medico</label>
+              <label className="label">Médico solicitante</label>
               <select className="input" value={f.medico_id} onChange={(e) => setF({ ...f, medico_id: e.target.value })} required>
-                <option value="">Buscar medico...</option>
-                {medicos.map((m) => <option key={m.id} value={m.id}>{m.nombres} {m.apellidos}</option>)}
+                <option value="">Seleccione el médico…</option>
+                {medicos.map((m) => <option key={m.id} value={m.id}>{m.nombres} {m.apellidos}{m.cmp ? ` (${m.cmp})` : ''}</option>)}
               </select>
             </div>
 

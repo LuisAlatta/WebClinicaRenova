@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { api } from '../../../lib/api';
 import PageHeader from '../../../components/PageHeader';
 import Modal from '../../../components/Modal';
+import BuscadorPaciente, { type PacienteLite } from '../../../components/BuscadorPaciente';
 import { useToast } from '../../../components/Toast';
 
 /* ─── Tipos ───────────────────────────────────────────── */
@@ -35,7 +36,7 @@ export default function FacturacionPage() {
   const toast = useToast();
 
   // Formulario nueva factura
-  const [pacienteId, setPacienteId] = useState('');
+  const [pacienteSel, setPacienteSel] = useState<PacienteLite | null>(null);
   const [tipoComp, setTipoComp] = useState('BOLETA');
   const [items, setItems] = useState<Item[]>([{ descripcion: '', cantidad: '1', precio_unit: '' }]);
   const [enviando, setEnviando] = useState(false);
@@ -74,13 +75,13 @@ export default function FacturacionPage() {
   const removeItem = (i: number) => setItems((prev) => prev.length > 1 ? prev.filter((_, idx) => idx !== i) : prev);
 
   function limpiarNueva() {
-    setPacienteId(''); setTipoComp('BOLETA'); setItems([{ descripcion: '', cantidad: '1', precio_unit: '' }]);
+    setPacienteSel(null); setTipoComp('BOLETA'); setItems([{ descripcion: '', cantidad: '1', precio_unit: '' }]);
   }
 
   async function generarFactura(e: React.FormEvent) {
     e.preventDefault();
     const itemsValidos = items.filter((it) => it.descripcion.trim() && Number(it.precio_unit) > 0);
-    if (!pacienteId || itemsValidos.length === 0) {
+    if (!pacienteSel || itemsValidos.length === 0) {
       toast.error('Datos incompletos', 'Selecciona un paciente y agrega al menos un ítem con precio.'); return;
     }
     setEnviando(true);
@@ -88,7 +89,7 @@ export default function FacturacionPage() {
       await api('/api/facturacion', {
         method: 'POST',
         body: JSON.stringify({
-          paciente_id: pacienteId,
+          paciente_id: pacienteSel.id,
           tipo_comprobante: tipoComp,
           items: itemsValidos.map((it) => ({ descripcion: it.descripcion.trim(), cantidad: Number(it.cantidad) || 1, precio_unit: Number(it.precio_unit) })),
         }),
@@ -184,10 +185,12 @@ export default function FacturacionPage() {
 
             <div className="form-row">
               <label className="label">Paciente *</label>
-              <select className="input" value={pacienteId} onChange={(e) => setPacienteId(e.target.value)} required>
-                <option value="">Seleccione un paciente...</option>
-                {pacientes.map((p) => <option key={p.id} value={p.id}>{p.nombres} {p.apellidos} — {p.dni}</option>)}
-              </select>
+              <BuscadorPaciente onSelect={setPacienteSel} placeholder="DNI, C.E., pasaporte o nombre…" />
+              {pacienteSel && (
+                <div style={{ marginTop: '.5rem', fontSize: '.85rem', color: 'var(--ok)' }}>
+                  Seleccionado: <strong>{pacienteSel.nombres} {pacienteSel.apellidos}</strong> — {pacienteSel.tipo_documento || 'DNI'} {pacienteSel.dni}
+                </div>
+              )}
             </div>
             <div className="form-row">
               <label className="label">Tipo</label>

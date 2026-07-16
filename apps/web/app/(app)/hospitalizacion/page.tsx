@@ -3,8 +3,21 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import ConfirmDialog from '../../../components/ConfirmDialog';
 import PageHeader from '../../../components/PageHeader';
+import BuscadorPaciente, { type PacienteLite } from '../../../components/BuscadorPaciente';
 import { useToast } from '../../../components/Toast';
 import { getUsuario } from '../../../lib/api';
+
+/* Calcula la edad (en años) a partir de la fecha de nacimiento ISO. */
+function calcularEdad(fechaNac?: string): string {
+  if (!fechaNac) return '';
+  const nac = new Date(fechaNac);
+  if (isNaN(nac.getTime())) return '';
+  const hoy = new Date();
+  let edad = hoy.getFullYear() - nac.getFullYear();
+  const m = hoy.getMonth() - nac.getMonth();
+  if (m < 0 || (m === 0 && hoy.getDate() < nac.getDate())) edad--;
+  return edad >= 0 && edad < 130 ? String(edad) : '';
+}
 
 /* HP0001 - Configuración de conexión backend (vía API Gateway) */
 const API_HOSPITALIZACION = 'http://localhost:4000/api/hospitalizacion';
@@ -407,47 +420,16 @@ export default function HospitalizacionPage() {
     );
   }
 
-  /* HP0015 - Buscar paciente por DNI (backend real + respaldo demo) */
-  async function buscarPacientePorDni() {
-    if (!form.dni.trim()) {
-      toast.info('Ingresa un documento', 'Escribe el número de documento a buscar.');
-      return;
-    }
-
-    // 1) Buscar en el registro real de pacientes (servicio de pacientes).
-    try {
-      const res = await fetch(`http://localhost:4000/api/pacientes?dni=${encodeURIComponent(form.dni.trim())}`, {
-        headers: { Authorization: `Bearer ${obtenerToken()}` },
-      });
-      const json = await res.json();
-      if (json.ok && json.data?.length) {
-        const p = json.data[0];
-        setForm((prev) => ({
-          ...prev,
-          nombres: `${p.nombres} ${p.apellidos}`,
-          pacienteId: p.id,
-        }));
-        toast.ok('Paciente encontrado', 'Elige especialidad y médico responsable para el ingreso.');
-        return;
-      }
-    } catch { /* si el backend falla, se usa la demo local */ }
-
-    // 2) Respaldo: pacientes demo mapeados a IDs reales.
-    const encontrado = pacientesBase.find((p) => p.dni === form.dni);
-    if (!encontrado) {
-      toast.info('Paciente no encontrado', 'No está registrado. Regístralo primero en Pacientes.');
-      return;
-    }
-    setForm({
-      ...form,
-      nombres: encontrado.nombres,
-      edad: encontrado.edad,
-      doctor: encontrado.doctor,
-      procedimiento: encontrado.procedimiento,
-      tipo: encontrado.tipo,
-      pacienteId: encontrado.pacienteId,
-      medicoId: encontrado.medicoId,
-    });
+  /* HP0015 - Selección de paciente real desde el buscador (muestra nombre) */
+  function elegirPacienteBuscado(p: PacienteLite) {
+    setForm((prev) => ({
+      ...prev,
+      dni: p.dni,
+      nombres: `${p.nombres} ${p.apellidos}`,
+      edad: calcularEdad(p.fecha_nacimiento) || prev.edad,
+      pacienteId: p.id,
+    }));
+    toast.ok('Paciente seleccionado', 'Elige especialidad y médico responsable para el ingreso.');
   }
 
   /* HP0016 - Actualización visual de ocupación */
@@ -985,16 +967,14 @@ export default function HospitalizacionPage() {
       {/* HP0026 - Modal ingreso */}
       {modalIngreso && (
         <Modal titulo="Registrar ingreso hospitalario" onClose={() => setModalIngreso(false)}>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <input
-              style={input}
-              placeholder="DNI"
-              value={form.dni}
-              onChange={(e) => setForm({ ...form, dni: e.target.value })}
-            />
-            <button style={smallButton} onClick={buscarPacientePorDni}>
-              Buscar
-            </button>
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={fieldLabel}>Paciente (busca por DNI, C.E. o nombre)</label>
+            <BuscadorPaciente onSelect={elegirPacienteBuscado} placeholder="DNI, C.E., pasaporte o nombre…" />
+            {form.pacienteId && (
+              <div style={{ marginTop: '.4rem', fontSize: '.85rem', color: 'var(--ok)' }}>
+                Seleccionado: <strong>{form.nombres}</strong>{form.dni ? ` — ${form.dni}` : ''}
+              </div>
+            )}
           </div>
 
           <input
@@ -1006,6 +986,9 @@ export default function HospitalizacionPage() {
 
           <input
             style={input}
+            type="number"
+            min={0}
+            max={130}
             placeholder="Edad"
             value={form.edad}
             onChange={(e) => setForm({ ...form, edad: e.target.value })}
@@ -1514,7 +1497,7 @@ const iconButton = {
 const input = {
   width: '100%',
   padding: '.7rem .9rem',
-  marginBottom: '.7rem',
+  marginBottom: '.9rem',
   border: '1px solid transparent',
   borderRadius: 10,
   background: 'var(--input)',

@@ -50,10 +50,32 @@ INSERT INTO maestras.estados (entidad, codigo, nombre) VALUES
 INSERT INTO maestras.metodos_pago (codigo, nombre) VALUES
   ('EFEC','Efectivo'), ('TARJ','Tarjeta'), ('YAPE','Yape/Plin'), ('TRANS','Transferencia');
 
+-- 3 médicos por cada especialidad (se conservan los CMP originales referenciados más abajo).
 INSERT INTO maestras.medicos (nombres, apellidos, especialidad_id, cmp) VALUES
+  -- Medicina General (MG)
+  ('Rosa','Herrera',    (SELECT id FROM maestras.especialidades WHERE codigo='MG'),  'CMP20001'),
+  ('Luis','Fernández',  (SELECT id FROM maestras.especialidades WHERE codigo='MG'),  'CMP20002'),
+  ('Carmen','Díaz',     (SELECT id FROM maestras.especialidades WHERE codigo='MG'),  'CMP20003'),
+  -- Cardiología (CAR)
   ('Yordy','Neyra',     (SELECT id FROM maestras.especialidades WHERE codigo='CAR'), 'CMP12345'),
+  ('Manuel','Rojas',    (SELECT id FROM maestras.especialidades WHERE codigo='CAR'), 'CMP20004'),
+  ('Patricia','Salas',  (SELECT id FROM maestras.especialidades WHERE codigo='CAR'), 'CMP20005'),
+  -- Pediatría (PED)
+  ('Ana','Quispe',      (SELECT id FROM maestras.especialidades WHERE codigo='PED'), 'CMP11223'),
+  ('Jorge','Ramírez',   (SELECT id FROM maestras.especialidades WHERE codigo='PED'), 'CMP20006'),
+  ('Elena','Vega',      (SELECT id FROM maestras.especialidades WHERE codigo='PED'), 'CMP20007'),
+  -- Traumatología (TRA)
   ('Sebastian','Ticlavilca', (SELECT id FROM maestras.especialidades WHERE codigo='TRA'), 'CMP67890'),
-  ('Ana','Quispe',      (SELECT id FROM maestras.especialidades WHERE codigo='PED'), 'CMP11223');
+  ('Óscar','Mendoza',   (SELECT id FROM maestras.especialidades WHERE codigo='TRA'), 'CMP20008'),
+  ('Diana','Castro',    (SELECT id FROM maestras.especialidades WHERE codigo='TRA'), 'CMP20009'),
+  -- Ginecología (GIN)
+  ('María','Torres',    (SELECT id FROM maestras.especialidades WHERE codigo='GIN'), 'CMP20010'),
+  ('Lucía','Ríos',      (SELECT id FROM maestras.especialidades WHERE codigo='GIN'), 'CMP20011'),
+  ('Andrea','Campos',   (SELECT id FROM maestras.especialidades WHERE codigo='GIN'), 'CMP20012'),
+  -- Cirugía General (CIR)
+  ('Carlos','Vargas',   (SELECT id FROM maestras.especialidades WHERE codigo='CIR'), 'CMP20013'),
+  ('Ricardo','Ponce',   (SELECT id FROM maestras.especialidades WHERE codigo='CIR'), 'CMP20014'),
+  ('Sofía','Guzmán',    (SELECT id FROM maestras.especialidades WHERE codigo='CIR'), 'CMP20015');
 
 INSERT INTO maestras.consultorios (codigo, piso) VALUES ('C-101',1), ('C-102',1), ('C-201',2);
 INSERT INTO maestras.salas_quirurgicas (codigo, piso) VALUES ('SOP-1',3), ('SOP-2',3);

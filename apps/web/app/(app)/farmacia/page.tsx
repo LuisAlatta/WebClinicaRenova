@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { api, getUsuario } from '../../../lib/api';
 import PageHeader from '../../../components/PageHeader';
+import BuscadorPaciente, { type PacienteLite } from '../../../components/BuscadorPaciente';
 import { useToast } from '../../../components/Toast';
 
 /* ─── Tipos ───────────────────────────────────────────── */
@@ -133,6 +134,7 @@ export default function FarmaciaPage() {
   const [loadingAlertas, setLoadingAlertas] = useState(false);
   const [pacientes, setPacientes] = useState<Paciente[]>([]);
   const [movimientos, setMovimientos] = useState<Movimiento[]>([]);
+  const [pacienteSel, setPacienteSel] = useState<PacienteLite | null>(null);
   const [f, setF] = useState({ paciente_id: '', medicamento_id: '', cantidad: '', orden_medica: '' });
   const [filtroTipoDoc, setFiltroTipoDoc] = useState('');
   const [enviando, setEnviando] = useState(false);
@@ -185,14 +187,15 @@ export default function FarmaciaPage() {
   /* Despacho */
   async function registrarDespacho(e: React.FormEvent) {
     e.preventDefault();
-    if (!f.paciente_id || !f.medicamento_id || !f.cantidad) {
-      toast.error('Datos incompletos', 'Completa todos los campos requeridos.'); return;
+    if (!pacienteSel || !f.medicamento_id || !f.cantidad) {
+      toast.error('Datos incompletos', 'Selecciona el paciente y completa medicamento y cantidad.'); return;
     }
     setEnviando(true);
     try {
-      await api('/api/farmacia/despachos', { method: 'POST', body: JSON.stringify({ paciente_id: f.paciente_id, medicamento_id: f.medicamento_id, cantidad: Number(f.cantidad), orden_medica: f.orden_medica || undefined }) });
+      await api('/api/farmacia/despachos', { method: 'POST', body: JSON.stringify({ paciente_id: pacienteSel.id, medicamento_id: f.medicamento_id, cantidad: Number(f.cantidad), orden_medica: f.orden_medica || undefined }) });
       toast.ok('Despacho registrado', 'El medicamento se despachó correctamente.');
       setF({ paciente_id: '', medicamento_id: '', cantidad: '', orden_medica: '' });
+      setPacienteSel(null);
       cargarStock();
       cargarMovimientos();
     } catch (err: any) { toast.error('No se pudo despachar', err.message || 'Error al registrar el despacho.'); }
