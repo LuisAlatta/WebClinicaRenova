@@ -210,7 +210,16 @@ export async function registrarRutas(app: FastifyInstance) {
   });
 
   // GET /movimientos -> Historial de movimientos (ingresos y egresos)
-  app.get('/movimientos', { preHandler: requireAuth(['ADMIN', 'FARMACEUTICO', 'ASISTENTE', 'MEDICO']) }, async () => {
+  app.get('/movimientos', { preHandler: requireAuth(['ADMIN', 'FARMACEUTICO', 'ASISTENTE', 'MEDICO']) }, async (req: any) => {
+    const { fecha } = req.query;
+    let where = '';
+    let params: any[] = [];
+    
+    if (fecha) {
+      where = 'WHERE mov.fecha::date = $1';
+      params.push(fecha);
+    }
+
     const movimientos = await query(`
       SELECT mov.id, med.nombre as medicamento, mov.tipo, mov.cantidad, mov.motivo, mov.fecha,
              d.paciente_id
@@ -220,9 +229,9 @@ export async function registrarRutas(app: FastifyInstance) {
         ON mov.tipo = 'EGRESO'
         AND d.medicamento_id = mov.medicamento_id
         AND d.fecha::timestamptz BETWEEN mov.fecha - interval '2 seconds' AND mov.fecha + interval '2 seconds'
-      ORDER BY mov.fecha DESC
-      LIMIT 50
-    `);
+      ${where}
+      ORDER BY mov.fecha ASC
+    `, params);
     return { ok: true, data: movimientos };
   });
 }
