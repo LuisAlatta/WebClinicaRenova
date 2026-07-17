@@ -608,6 +608,28 @@ export default function HospitalizacionPage() {
       }
     }
 
+    const nombre = pacienteSeleccionado.nombres;
+    const mensajes: Record<string, string> = {
+      ALTA: `Se dará de ALTA a ${nombre}. La cama quedará libre.`,
+      'ALTA VOLUNTARIA': `Se registrará el ALTA VOLUNTARIA de ${nombre}. La cama quedará libre.`,
+      TRASLADO: `Se trasladará a ${nombre} a la habitación ${accion.nuevaHabitacion} (${accion.nuevaCama}).`,
+      'REFERIDO EMERGENCIA': `Se referirá a ${nombre} a emergencia. Destino: ${accion.referenciaDestino}.`,
+    };
+    confirmar(
+      {
+        title: `¿Confirmar acción: ${accion.tipo}?`,
+        message: mensajes[accion.tipo] || `Se registrará la acción "${accion.tipo}" para ${nombre}.`,
+        confirmLabel: 'Sí, confirmar',
+        tone: accion.tipo === 'REFERIDO EMERGENCIA' ? 'danger' : 'warn',
+      },
+      ejecutarAccion,
+    );
+  }
+
+  /* HP0019b - Ejecuta la acción confirmada (backend o respaldo visual). */
+  async function ejecutarAccion() {
+    if (!pacienteSeleccionado) return;
+
     const token = obtenerToken();
 
     if (
