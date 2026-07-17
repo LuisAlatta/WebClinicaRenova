@@ -30,9 +30,12 @@ function hoyISO() {
 export default function PacientesPage() {
   // Solo el administrador puede registrar médicos (POST /medicos exige ADMIN).
   const puedeRegistrarMedico = getUsuario()?.rol === 'ADMIN';
-  const [tab, setTab] = useState<'paciente' | 'medico'>('paciente');
+  const [tab, setTab] = useState<'lista' | 'paciente' | 'medico'>('lista');
   const [pacientes, setPacientes] = useState<any[]>([]);
   const [especialidades, setEspecialidades] = useState<any[]>([]);
+  const [busca, setBusca] = useState('');
+  const [filtroTipo, setFiltroTipo] = useState('');
+  const [filtroSexo, setFiltroSexo] = useState('');
   const toast = useToast();
   const { confirmar, ConfirmUI } = useConfirm();
 
@@ -117,19 +120,55 @@ export default function PacientesPage() {
     : 'Número (6 a 12 caracteres)';
   const esDni = fp.tipo_documento === 'DNI';
 
+  // Filtro en vivo del listado (por texto, tipo de documento y sexo).
+  const q = busca.trim().toLowerCase();
+  const pacientesFiltrados = pacientes.filter((p) => {
+    const matchTexto = !q
+      || `${p.nombres} ${p.apellidos}`.toLowerCase().includes(q)
+      || (p.dni || '').toLowerCase().includes(q)
+      || (p.email || '').toLowerCase().includes(q);
+    const matchTipo = !filtroTipo || (p.tipo_documento || 'DNI') === filtroTipo;
+    const matchSexo = !filtroSexo || (p.sexo || '') === filtroSexo;
+    return matchTexto && matchTipo && matchSexo;
+  });
+  const hayFiltro = !!(q || filtroTipo || filtroSexo);
+  function limpiarFiltros() { setBusca(''); setFiltroTipo(''); setFiltroSexo(''); }
+
   return (
     <>
-      <PageHeader title="Registro de pacientes y médicos" />
+      <PageHeader title="Pacientes" />
 
       <div className="card">
         <div className="tabs">
-          <div className={`tab ${tab === 'paciente' ? 'active' : ''}`} onClick={() => setTab('paciente')}>Pacientes</div>
+          <div className={`tab ${tab === 'lista' ? 'active' : ''}`} onClick={() => setTab('lista')}>Listado de pacientes</div>
+          <div className={`tab ${tab === 'paciente' ? 'active' : ''}`} onClick={() => setTab('paciente')}>Registrar paciente</div>
           {puedeRegistrarMedico && (
-            <div className={`tab ${tab === 'medico' ? 'active' : ''}`} onClick={() => setTab('medico')}>Registrar Médico</div>
+            <div className={`tab ${tab === 'medico' ? 'active' : ''}`} onClick={() => setTab('medico')}>Registrar médico</div>
           )}
         </div>
 
-        {tab === 'paciente' || !puedeRegistrarMedico ? (
+        {tab === 'lista' && (
+          <div style={{ display: 'flex', gap: '.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            <div className="search" style={{ flex: 1, minWidth: 220, maxWidth: 360 }}>
+              <input className="input" placeholder="Buscar por nombre, documento o correo…" value={busca} onChange={(e) => setBusca(e.target.value)} />
+            </div>
+            <select className="input" style={{ maxWidth: 200 }} value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)}>
+              <option value="">Todos los documentos</option>
+              {TIPOS_DOC.map((d) => <option key={d.v} value={d.v}>{d.t}</option>)}
+            </select>
+            <select className="input" style={{ maxWidth: 160 }} value={filtroSexo} onChange={(e) => setFiltroSexo(e.target.value)}>
+              <option value="">Ambos sexos</option>
+              <option value="M">Masculino</option>
+              <option value="F">Femenino</option>
+            </select>
+            {hayFiltro && <button className="btn btn-secondary" type="button" onClick={limpiarFiltros}>Limpiar</button>}
+            <div style={{ flex: 1 }} />
+            <span style={{ color: 'var(--muted)', fontSize: '.85rem' }}>{pacientesFiltrados.length} de {pacientes.length}</span>
+            <button className="btn" type="button" onClick={() => setTab('paciente')}>+ Nuevo paciente</button>
+          </div>
+        )}
+
+        {tab === 'paciente' && (
           <form onSubmit={crearPaciente}>
             <div className="section-title">Datos</div>
             <div className="form-row"><label className="label">Tipo de documento</label>
@@ -170,7 +209,9 @@ export default function PacientesPage() {
             </div>
             <div style={{ textAlign: 'right' }}><button className="btn">Registrar</button></div>
           </form>
-        ) : (
+        )}
+
+        {tab === 'medico' && puedeRegistrarMedico && (
           <form onSubmit={crearMedico}>
             <div className="form-row"><label className="label">Especialidad</label>
               <select className="input" value={fm.especialidad_id} onChange={(e) => setFm({ ...fm, especialidad_id: e.target.value })}>
@@ -187,24 +228,31 @@ export default function PacientesPage() {
         )}
       </div>
 
-      <div className="card table-card" style={{ marginTop: '1.25rem' }}>
-        <table>
-          <thead><tr><th>Documento</th><th>Nombre</th><th>Teléfono</th><th>Correo</th><th>Canal</th><th>Red</th></tr></thead>
-          <tbody>
-            {pacientes.map((p) => (
-              <tr key={p.id}>
-                <td><span style={{ color: 'var(--muted)', fontSize: '.75rem' }}>{p.tipo_documento || 'DNI'}</span><br />{p.dni}</td>
-                <td>{p.nombres} {p.apellidos}</td>
-                <td>{p.telefono || '—'}</td>
-                <td>{p.email || '—'}</td>
-                <td>{p.canal_preferido || 'email'}</td>
-                <td><button className="btn btn-secondary" style={{ padding: '.3rem .7rem', fontSize: '.8rem' }} onClick={() => verRed(p)}>Ver red</button></td>
-              </tr>
-            ))}
-            {pacientes.length === 0 && <tr><td colSpan={6} style={{ color: 'var(--muted)' }}>Sin registros</td></tr>}
-          </tbody>
-        </table>
-      </div>
+      {tab === 'lista' && (
+        <div className="card table-card" style={{ marginTop: '1.25rem' }}>
+          <table>
+            <thead><tr><th>Documento</th><th>Nombre</th><th>Sexo</th><th>Teléfono</th><th>Correo</th><th>Canal</th><th>Red</th></tr></thead>
+            <tbody>
+              {pacientesFiltrados.map((p) => (
+                <tr key={p.id}>
+                  <td><span style={{ color: 'var(--muted)', fontSize: '.75rem' }}>{p.tipo_documento || 'DNI'}</span><br />{p.dni}</td>
+                  <td>{p.nombres} {p.apellidos}</td>
+                  <td>{p.sexo === 'M' ? 'M' : p.sexo === 'F' ? 'F' : '—'}</td>
+                  <td>{p.telefono || '—'}</td>
+                  <td>{p.email || '—'}</td>
+                  <td>{p.canal_preferido || 'email'}</td>
+                  <td><button className="btn btn-secondary" style={{ padding: '.3rem .7rem', fontSize: '.8rem' }} onClick={() => verRed(p)}>Ver red</button></td>
+                </tr>
+              ))}
+              {pacientesFiltrados.length === 0 && (
+                <tr><td colSpan={7} style={{ color: 'var(--muted)', textAlign: 'center', padding: '2rem' }}>
+                  {hayFiltro ? 'Sin pacientes que coincidan con la búsqueda.' : 'Sin pacientes registrados.'}
+                </td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      )}
 
       <Modal
         open={redAbierta}

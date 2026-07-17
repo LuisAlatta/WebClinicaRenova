@@ -16,7 +16,7 @@ type NavItem = { href: string; label: string; icon: React.ReactNode; roles?: str
 
 const items: NavItem[] = [
   { href: '/dashboard', label: 'Dashboard', icon: I('M3 3h7v7H3z|M14 3h7v7h-7z|M14 14h7v7h-7z|M3 14h7v7H3z') },
-  { href: '/pacientes', label: 'Registrar Pacientes', roles: ['ASISTENTE'], icon: I('M9 7a3 3 0 1 0 0-6 3 3 0 0 0 0 6z|M2 21a7 7 0 0 1 14 0|M18 8v6|M21 11h-6') },
+  { href: '/pacientes', label: 'Pacientes', roles: ['ASISTENTE'], icon: I('M9 7a3 3 0 1 0 0-6 3 3 0 0 0 0 6z|M2 21a7 7 0 0 1 14 0|M18 8v6|M21 11h-6') },
   { href: '/citas', label: 'Programacion de Consultas', roles: ['ASISTENTE', 'MEDICO'], icon: I('M8 2v4|M16 2v4|M3 10h18|M3 6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v13a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z') },
   { href: '/hospitalizacion', label: 'Hospitalizacion', roles: ['MEDICO', 'ASISTENTE'], icon: I('M3 18v-6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6|M3 18h18|M7 10V7a1 1 0 0 1 1-1h3') },
   { href: '/farmacia', label: 'Farmacia', roles: ['FARMACEUTICO', 'ASISTENTE', 'MEDICO'], icon: I('M10.5 20.5 3.5 13.5a4.95 4.95 0 0 1 7-7l7 7a4.95 4.95 0 0 1-7 7z|M8.5 8.5l7 7') },
