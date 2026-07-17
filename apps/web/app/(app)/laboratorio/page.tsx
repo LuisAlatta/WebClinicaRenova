@@ -6,6 +6,7 @@ import Modal from '../../../components/Modal';
 import BuscadorPaciente, { type PacienteLite } from '../../../components/BuscadorPaciente';
 import AutoComplete from '../../../components/AutoComplete';
 import { useToast } from '../../../components/Toast';
+import { useConfirm } from '../../../components/useConfirm';
 
 /** Formatea una clave tipo "perfil_lipidico" -> "Perfil lipidico". */
 function etiqueta(k: string) {
@@ -52,6 +53,7 @@ export default function LaboratorioPage() {
   const [medicos, setMedicos] = useState<any[]>([]);
   const [verResultado, setVerResultado] = useState<any | null>(null);
   const toast = useToast();
+  const { confirmar, ConfirmUI } = useConfirm();
 
   const [pacienteSel, setPacienteSel] = useState<PacienteLite | null>(null);
   const [resetKey, setResetKey] = useState(0); // fuerza limpiar los autocompletados tras enviar
@@ -65,10 +67,23 @@ export default function LaboratorioPage() {
   const [fRes, setFRes] = useState({ resultado: '', observaciones: '' });
   const [guardandoRes, setGuardandoRes] = useState(false);
 
-  async function cargarResultado(e: React.FormEvent) {
+  function cargarResultado(e: React.FormEvent) {
     e.preventDefault();
     if (!cargarEx) return;
     if (!fRes.resultado.trim()) { toast.error('Falta el resultado', 'Escribe el resultado del examen.'); return; }
+    confirmar(
+      {
+        title: '¿Guardar resultado?',
+        message: `El examen "${cargarEx.tipo_examen}" quedará finalizado y se notificará al paciente. Esta acción no se puede deshacer.`,
+        confirmLabel: 'Sí, guardar',
+        tone: 'warn',
+      },
+      ejecutarCargarResultado,
+    );
+  }
+
+  async function ejecutarCargarResultado() {
+    if (!cargarEx) return;
     setGuardandoRes(true);
     try {
       await api('/api/laboratorio/resultados', {
@@ -96,25 +111,34 @@ export default function LaboratorioPage() {
   }
   useEffect(() => { cargarLista().catch(() => {}); cargarCombos().catch(() => {}); }, []);
 
-  async function solicitar(e: React.FormEvent) {
+  function solicitar(e: React.FormEvent) {
     e.preventDefault();
     if (!pacienteSel) { toast.error('Falta el paciente', 'Busca y selecciona un paciente por su documento o nombre.'); return; }
     if (!f.medico_id) { toast.error('Falta el médico', 'Selecciona el médico solicitante.'); return; }
     if (!f.tipo_examen.trim()) { toast.error('Falta el examen', 'Indica el tipo de examen a solicitar.'); return; }
-    try {
-      await api('/api/laboratorio/examenes', {
-        method: 'POST',
-        body: JSON.stringify({ ...f, paciente_id: pacienteSel.id }),
-      });
-      toast.ok('Solicitud registrada', 'El examen fue solicitado correctamente.');
-      setF({ paciente_id: '', medico_id: '', tipo_examen: '', prioridad: 'NORMAL' });
-      setPacienteSel(null);
-      setResetKey((k) => k + 1);
-      setVista('lista');
-      cargarLista();
-    } catch (e: any) {
-      toast.error('No se pudo solicitar', e.message);
-    }
+    confirmar(
+      {
+        title: '¿Solicitar examen?',
+        message: `Se solicitará el examen "${f.tipo_examen}" (${f.prioridad === 'URGENTE' ? 'urgente' : 'normal'}) para ${pacienteSel.nombres} ${pacienteSel.apellidos}.`,
+        confirmLabel: 'Sí, solicitar',
+      },
+      async () => {
+        try {
+          await api('/api/laboratorio/examenes', {
+            method: 'POST',
+            body: JSON.stringify({ ...f, paciente_id: pacienteSel.id }),
+          });
+          toast.ok('Solicitud registrada', 'El examen fue solicitado correctamente.');
+          setF({ paciente_id: '', medico_id: '', tipo_examen: '', prioridad: 'NORMAL' });
+          setPacienteSel(null);
+          setResetKey((k) => k + 1);
+          setVista('lista');
+          cargarLista();
+        } catch (e: any) {
+          toast.error('No se pudo solicitar', e.message);
+        }
+      },
+    );
   }
 
   return (
@@ -279,6 +303,8 @@ export default function LaboratorioPage() {
           </div>
         </form>
       </Modal>
+
+      {ConfirmUI}
     </>
   );
 }

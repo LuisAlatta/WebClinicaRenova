@@ -4,6 +4,7 @@ import { api, getUsuario } from '../../../lib/api';
 import PageHeader from '../../../components/PageHeader';
 import BuscadorPaciente, { type PacienteLite } from '../../../components/BuscadorPaciente';
 import { useToast } from '../../../components/Toast';
+import { useConfirm } from '../../../components/useConfirm';
 
 function EstadoBadge({ estado }: { estado: string }) {
   const map: Record<string, { cls: string; txt: string }> = {
@@ -39,6 +40,7 @@ export default function CitasPage() {
   const [agenda, setAgenda] = useState<any[]>([]);
   const [fechaAgenda, setFechaAgenda] = useState(hoyISO());
   const toast = useToast();
+  const { confirmar, ConfirmUI } = useConfirm();
 
   // Consulta la registra Admisión (ASISTENTE); la cirugía la programa el médico. ADMIN puede ambas.
   const rol = getUsuario()?.rol;
@@ -88,11 +90,25 @@ export default function CitasPage() {
     });
   }
 
-  async function registrar(e: React.FormEvent) {
+  function registrar(e: React.FormEvent) {
     e.preventDefault();
     if (!pacienteSel) { toast.error('Falta el paciente', 'Busca y selecciona un paciente por su documento.'); return; }
     if (!f.medico_id) { toast.error('Falta el médico', 'Elige la especialidad y luego el médico.'); return; }
     if (!f.fecha_hora) { toast.error('Falta la fecha', 'Indica fecha y hora de la programación.'); return; }
+    const medico = medicos.find((m) => String(m.id) === String(f.medico_id));
+    confirmar(
+      {
+        title: `¿Registrar ${f.tipo_atencion.toLowerCase()}?`,
+        message: `Se programará una ${f.tipo_atencion.toLowerCase()} para ${pacienteSel.nombres} ${pacienteSel.apellidos}`
+          + `${medico ? ` con ${medico.nombres} ${medico.apellidos}` : ''} el ${fmtFecha(f.fecha_hora)}.`,
+        confirmLabel: 'Sí, registrar',
+      },
+      ejecutarRegistro,
+    );
+  }
+
+  async function ejecutarRegistro() {
+    if (!pacienteSel) return;
     try {
       if (f.tipo_atencion === 'Cirugía') {
         await api('/api/citas/cirugias', {
@@ -286,6 +302,8 @@ export default function CitasPage() {
           </form>
         </div>
       )}
+
+      {ConfirmUI}
     </>
   );
 }

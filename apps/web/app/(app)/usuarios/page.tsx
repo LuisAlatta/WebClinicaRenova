@@ -4,6 +4,7 @@ import { api, getUsuario } from '../../../lib/api';
 import PageHeader from '../../../components/PageHeader';
 import Modal from '../../../components/Modal';
 import ConfirmDialog from '../../../components/ConfirmDialog';
+import { useConfirm } from '../../../components/useConfirm';
 import { useToast } from '../../../components/Toast';
 
 interface Usuario {
@@ -36,6 +37,7 @@ export default function UsuariosPage() {
   const [guardando, setGuardando] = useState(false);
 
   const [aEliminar, setAEliminar] = useState<Usuario | null>(null);
+  const { confirmar, ConfirmUI } = useConfirm();
 
   async function cargar() {
     setCargando(true);
@@ -68,7 +70,7 @@ export default function UsuariosPage() {
     setModalAbierto(true);
   }
 
-  async function guardar(e: React.FormEvent) {
+  function guardar(e: React.FormEvent) {
     e.preventDefault();
     if (!form.nombres.trim() || !form.apellidos.trim() || !form.email.trim() || !form.rol) {
       toast.error('Datos incompletos', 'Completa nombres, apellidos, correo y rol.'); return;
@@ -76,6 +78,20 @@ export default function UsuariosPage() {
     if (!editando && form.password.length < 6) {
       toast.error('Contraseña inválida', 'La contraseña debe tener al menos 6 caracteres.'); return;
     }
+    const rolNombre = roles.find((r) => r.codigo === form.rol)?.nombre || form.rol;
+    confirmar(
+      {
+        title: editando ? '¿Guardar cambios?' : '¿Crear usuario?',
+        message: editando
+          ? `Se actualizarán los datos de ${form.nombres} ${form.apellidos} (rol: ${rolNombre}).`
+          : `Se creará la cuenta de ${form.nombres} ${form.apellidos} con rol ${rolNombre} y correo ${form.email}.`,
+        confirmLabel: editando ? 'Sí, guardar' : 'Sí, crear',
+      },
+      ejecutarGuardar,
+    );
+  }
+
+  async function ejecutarGuardar() {
     setGuardando(true);
     try {
       if (editando) {
@@ -226,6 +242,8 @@ export default function UsuariosPage() {
         onConfirm={eliminar}
         onCancel={() => setAEliminar(null)}
       />
+
+      {ConfirmUI}
     </>
   );
 }

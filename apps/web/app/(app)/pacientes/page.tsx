@@ -4,6 +4,7 @@ import { api, getUsuario } from '../../../lib/api';
 import PageHeader from '../../../components/PageHeader';
 import Modal from '../../../components/Modal';
 import { useToast } from '../../../components/Toast';
+import { useConfirm } from '../../../components/useConfirm';
 
 const TIPOS_DOC = [
   { v: 'DNI', t: 'DNI' },
@@ -33,6 +34,7 @@ export default function PacientesPage() {
   const [pacientes, setPacientes] = useState<any[]>([]);
   const [especialidades, setEspecialidades] = useState<any[]>([]);
   const toast = useToast();
+  const { confirmar, ConfirmUI } = useConfirm();
 
   const [fp, setFp] = useState({
     tipo_documento: 'DNI', dni: '', nombres: '', apellidos: '',
@@ -54,26 +56,50 @@ export default function PacientesPage() {
   }
   useEffect(() => { cargar(); }, []);
 
-  async function crearPaciente(e: React.FormEvent) {
+  function crearPaciente(e: React.FormEvent) {
     e.preventDefault();
-    try {
-      await api('/api/pacientes', { method: 'POST', body: JSON.stringify(fp) });
-      toast.ok('Paciente registrado', 'El paciente se registró correctamente.');
-      setFp({ tipo_documento: 'DNI', dni: '', nombres: '', apellidos: '', fecha_nacimiento: '', sexo: '', telefono: '', email: '', direccion: '', canal_preferido: 'email' });
-      cargar();
-    } catch (e: any) { toast.error('No se pudo registrar', e.message); }
+    if (!fp.dni.trim() || !fp.nombres.trim() || !fp.apellidos.trim()) {
+      toast.error('Datos incompletos', 'Completa documento, nombres y apellidos.'); return;
+    }
+    confirmar(
+      {
+        title: '¿Registrar paciente?',
+        message: `Se registrará a ${fp.nombres} ${fp.apellidos} con ${fp.tipo_documento} ${fp.dni}.`,
+        confirmLabel: 'Sí, registrar',
+      },
+      async () => {
+        try {
+          await api('/api/pacientes', { method: 'POST', body: JSON.stringify(fp) });
+          toast.ok('Paciente registrado', 'El paciente se registró correctamente.');
+          setFp({ tipo_documento: 'DNI', dni: '', nombres: '', apellidos: '', fecha_nacimiento: '', sexo: '', telefono: '', email: '', direccion: '', canal_preferido: 'email' });
+          cargar();
+        } catch (e: any) { toast.error('No se pudo registrar', e.message); }
+      },
+    );
   }
 
-  async function crearMedico(e: React.FormEvent) {
+  function crearMedico(e: React.FormEvent) {
     e.preventDefault();
-    try {
-      await api('/api/pacientes/medicos', {
-        method: 'POST',
-        body: JSON.stringify({ ...fm, especialidad_id: fm.especialidad_id ? Number(fm.especialidad_id) : null }),
-      });
-      toast.ok('Médico registrado', 'El médico se registró correctamente.');
-      setFm({ nombres: '', apellidos: '', especialidad_id: '', cmp: '' });
-    } catch (e: any) { toast.error('No se pudo registrar', e.message); }
+    if (!fm.nombres.trim() || !fm.apellidos.trim()) {
+      toast.error('Datos incompletos', 'Completa nombres y apellidos del médico.'); return;
+    }
+    confirmar(
+      {
+        title: '¿Registrar médico?',
+        message: `Se registrará al médico ${fm.nombres} ${fm.apellidos}${fm.cmp ? ` (CMP ${fm.cmp})` : ''}.`,
+        confirmLabel: 'Sí, registrar',
+      },
+      async () => {
+        try {
+          await api('/api/pacientes/medicos', {
+            method: 'POST',
+            body: JSON.stringify({ ...fm, especialidad_id: fm.especialidad_id ? Number(fm.especialidad_id) : null }),
+          });
+          toast.ok('Médico registrado', 'El médico se registró correctamente.');
+          setFm({ nombres: '', apellidos: '', especialidad_id: '', cmp: '' });
+        } catch (e: any) { toast.error('No se pudo registrar', e.message); }
+      },
+    );
   }
 
   async function verRed(p: any) {
@@ -201,6 +227,8 @@ export default function PacientesPage() {
           </div>
         )}
       </Modal>
+
+      {ConfirmUI}
     </>
   );
 }

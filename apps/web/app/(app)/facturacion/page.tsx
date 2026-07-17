@@ -5,6 +5,7 @@ import PageHeader from '../../../components/PageHeader';
 import Modal from '../../../components/Modal';
 import BuscadorPaciente, { type PacienteLite } from '../../../components/BuscadorPaciente';
 import { useToast } from '../../../components/Toast';
+import { useConfirm } from '../../../components/useConfirm';
 
 /* ─── Tipos ───────────────────────────────────────────── */
 interface Factura {
@@ -34,6 +35,7 @@ export default function FacturacionPage() {
   const [loading, setLoading] = useState(true);
   const [detalle, setDetalle] = useState<DetalleFactura | null>(null);
   const toast = useToast();
+  const { confirmar, ConfirmUI } = useConfirm();
 
   // Formulario nueva factura
   const [pacienteSel, setPacienteSel] = useState<PacienteLite | null>(null);
@@ -78,28 +80,37 @@ export default function FacturacionPage() {
     setPacienteSel(null); setTipoComp('BOLETA'); setItems([{ descripcion: '', cantidad: '1', precio_unit: '' }]);
   }
 
-  async function generarFactura(e: React.FormEvent) {
+  function generarFactura(e: React.FormEvent) {
     e.preventDefault();
     const itemsValidos = items.filter((it) => it.descripcion.trim() && Number(it.precio_unit) > 0);
     if (!pacienteSel || itemsValidos.length === 0) {
       toast.error('Datos incompletos', 'Selecciona un paciente y agrega al menos un ítem con precio.'); return;
     }
-    setEnviando(true);
-    try {
-      await api('/api/facturacion', {
-        method: 'POST',
-        body: JSON.stringify({
-          paciente_id: pacienteSel.id,
-          tipo_comprobante: tipoComp,
-          items: itemsValidos.map((it) => ({ descripcion: it.descripcion.trim(), cantidad: Number(it.cantidad) || 1, precio_unit: Number(it.precio_unit) })),
-        }),
-      });
-      toast.ok('Comprobante generado', `${tipoComp} por ${fmt(totalCalc)} registrada.`);
-      limpiarNueva();
-      setVista('lista');
-      cargar();
-    } catch (e: any) { toast.error('No se pudo generar', e.message); }
-    finally { setEnviando(false); }
+    confirmar(
+      {
+        title: '¿Generar comprobante?',
+        message: `Se emitirá una ${tipoComp === 'FACTURA' ? 'factura' : 'boleta'} por ${fmt(totalCalc)} a nombre de ${pacienteSel.nombres} ${pacienteSel.apellidos}.`,
+        confirmLabel: 'Sí, generar',
+      },
+      async () => {
+        setEnviando(true);
+        try {
+          await api('/api/facturacion', {
+            method: 'POST',
+            body: JSON.stringify({
+              paciente_id: pacienteSel.id,
+              tipo_comprobante: tipoComp,
+              items: itemsValidos.map((it) => ({ descripcion: it.descripcion.trim(), cantidad: Number(it.cantidad) || 1, precio_unit: Number(it.precio_unit) })),
+            }),
+          });
+          toast.ok('Comprobante generado', `${tipoComp} por ${fmt(totalCalc)} registrada.`);
+          limpiarNueva();
+          setVista('lista');
+          cargar();
+        } catch (e: any) { toast.error('No se pudo generar', e.message); }
+        finally { setEnviando(false); }
+      },
+    );
   }
 
   async function verDetalle(id: string) {
@@ -114,22 +125,32 @@ export default function FacturacionPage() {
     ? +(Number(detalle.total) - detalle.pagos.reduce((s, p) => s + Number(p.monto), 0)).toFixed(2)
     : 0;
 
-  async function registrarPago(e: React.FormEvent) {
+  function registrarPago(e: React.FormEvent) {
     e.preventDefault();
     if (!detalle) return;
     const monto = Number(pago.monto);
     if (!monto || monto <= 0) { toast.error('Monto inválido', 'Ingresa un monto mayor a 0.'); return; }
-    setPagando(true);
-    try {
-      await api(`/api/facturacion/${detalle.id}/pagos`, {
-        method: 'POST',
-        body: JSON.stringify({ monto, metodo_pago_id: pago.metodo_pago_id ? Number(pago.metodo_pago_id) : undefined }),
-      });
-      toast.ok('Pago registrado', `Se registró un pago de ${fmt(monto)}.`);
-      await verDetalle(detalle.id);
-      cargar();
-    } catch (e: any) { toast.error('No se pudo registrar el pago', e.message); }
-    finally { setPagando(false); }
+    const idFactura = detalle.id;
+    confirmar(
+      {
+        title: '¿Registrar pago?',
+        message: `Se registrará un pago de ${fmt(monto)} para este comprobante. Saldo actual: ${fmt(saldo)}.`,
+        confirmLabel: 'Sí, registrar pago',
+      },
+      async () => {
+        setPagando(true);
+        try {
+          await api(`/api/facturacion/${idFactura}/pagos`, {
+            method: 'POST',
+            body: JSON.stringify({ monto, metodo_pago_id: pago.metodo_pago_id ? Number(pago.metodo_pago_id) : undefined }),
+          });
+          toast.ok('Pago registrado', `Se registró un pago de ${fmt(monto)}.`);
+          await verDetalle(idFactura);
+          cargar();
+        } catch (e: any) { toast.error('No se pudo registrar el pago', e.message); }
+        finally { setPagando(false); }
+      },
+    );
   }
 
   return (
@@ -301,6 +322,8 @@ export default function FacturacionPage() {
           </>
         )}
       </Modal>
+
+      {ConfirmUI}
     </>
   );
 }

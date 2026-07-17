@@ -5,6 +5,7 @@ import PageHeader from '../../../components/PageHeader';
 import BuscadorPaciente, { type PacienteLite } from '../../../components/BuscadorPaciente';
 import AutoComplete from '../../../components/AutoComplete';
 import { useToast } from '../../../components/Toast';
+import { useConfirm } from '../../../components/useConfirm';
 
 /* ─── Tipos ───────────────────────────────────────────── */
 interface Medicamento {
@@ -154,6 +155,7 @@ export default function FarmaciaPage() {
   // Estado formulario Ingresar Lote
   const [fLote, setFLote] = useState({ medicamento_id: '', numero_lote: '', cantidad: '', fecha_vencimiento: '' });
   const [registrandoLote, setRegistrandoLote] = useState(false);
+  const { confirmar, ConfirmUI } = useConfirm();
   const setFieldLote = (k: keyof typeof fLote) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setFLote(prev => ({ ...prev, [k]: e.target.value }));
 
@@ -188,56 +190,90 @@ export default function FarmaciaPage() {
   useEffect(() => { if (tab === 'despacho' || tab === 'lote') cargarMovimientos(); }, [tab]);
 
   /* Despacho */
-  async function registrarDespacho(e: React.FormEvent) {
+  function registrarDespacho(e: React.FormEvent) {
     e.preventDefault();
     if (!f.paciente_id || !f.medicamento_id || !f.cantidad) {
       toast.error('Datos incompletos', 'Selecciona el paciente y completa medicamento y cantidad.'); return;
     }
-    setEnviando(true);
-    try {
-      await api('/api/farmacia/despachos', { method: 'POST', body: JSON.stringify({ paciente_id: f.paciente_id, medicamento_id: f.medicamento_id, cantidad: Number(f.cantidad), orden_medica: f.orden_medica || undefined }) });
-      toast.ok('Despacho registrado', 'El medicamento se despachó correctamente.');
-      setF({ paciente_id: '', medicamento_id: '', cantidad: '', orden_medica: '' });
-      setPacienteSel(null);
-      setResetDesp((k) => k + 1);
-      cargarStock();
-      cargarMovimientos();
-    } catch (err: any) { toast.error('No se pudo despachar', err.message || 'Error al registrar el despacho.'); }
-    finally { setEnviando(false); }
+    const med = stock.find((m) => m.id === f.medicamento_id);
+    const pac = pacientes.find((p) => p.id === f.paciente_id);
+    confirmar(
+      {
+        title: '¿Registrar despacho?',
+        message: `Se despacharán ${f.cantidad} unidad(es) de ${med?.nombre ?? 'el medicamento'}`
+          + `${pac ? ` a ${pac.nombres} ${pac.apellidos}` : ''}. Se descontará del stock.`,
+        confirmLabel: 'Sí, despachar',
+        tone: 'warn',
+      },
+      async () => {
+        setEnviando(true);
+        try {
+          await api('/api/farmacia/despachos', { method: 'POST', body: JSON.stringify({ paciente_id: f.paciente_id, medicamento_id: f.medicamento_id, cantidad: Number(f.cantidad), orden_medica: f.orden_medica || undefined }) });
+          toast.ok('Despacho registrado', 'El medicamento se despachó correctamente.');
+          setF({ paciente_id: '', medicamento_id: '', cantidad: '', orden_medica: '' });
+          setPacienteSel(null);
+          setResetDesp((k) => k + 1);
+          cargarStock();
+          cargarMovimientos();
+        } catch (err: any) { toast.error('No se pudo despachar', err.message || 'Error al registrar el despacho.'); }
+        finally { setEnviando(false); }
+      },
+    );
   }
 
   /* Nuevo medicamento */
-  async function registrarMedicamento(e: React.FormEvent) {
+  function registrarMedicamento(e: React.FormEvent) {
     e.preventDefault();
     if (!fNuevo.codigo || !fNuevo.nombre) {
       toast.error('Datos incompletos', 'Código y nombre son obligatorios.'); return;
     }
-    setGuardando(true);
-    try {
-      await api('/api/farmacia/medicamentos', {
-        method: 'POST',
-        body: JSON.stringify({
-          codigo: fNuevo.codigo.trim().toUpperCase(),
-          nombre: fNuevo.nombre.trim(),
-          presentacion: fNuevo.presentacion.trim() || undefined,
-          stock_minimo: Number(fNuevo.stock_minimo) || 10,
-          precio_unit: Number(fNuevo.precio_unit) || 0,
-        }),
-      });
-      toast.ok('Medicamento registrado', `"${fNuevo.nombre}" se registró correctamente.`);
-      setFNuevo({ codigo: '', nombre: '', presentacion: '', stock_minimo: '10', precio_unit: '0' });
-      cargarStock();
-    } catch (err: any) {
-      toast.error('No se pudo registrar', err.message || 'Error al registrar el medicamento.');
-    } finally { setGuardando(false); }
+    confirmar(
+      {
+        title: '¿Registrar medicamento?',
+        message: `Se agregará "${fNuevo.nombre.trim()}" (${fNuevo.codigo.trim().toUpperCase()}) al catálogo.`,
+        confirmLabel: 'Sí, registrar',
+      },
+      async () => {
+        setGuardando(true);
+        try {
+          await api('/api/farmacia/medicamentos', {
+            method: 'POST',
+            body: JSON.stringify({
+              codigo: fNuevo.codigo.trim().toUpperCase(),
+              nombre: fNuevo.nombre.trim(),
+              presentacion: fNuevo.presentacion.trim() || undefined,
+              stock_minimo: Number(fNuevo.stock_minimo) || 10,
+              precio_unit: Number(fNuevo.precio_unit) || 0,
+            }),
+          });
+          toast.ok('Medicamento registrado', `"${fNuevo.nombre}" se registró correctamente.`);
+          setFNuevo({ codigo: '', nombre: '', presentacion: '', stock_minimo: '10', precio_unit: '0' });
+          cargarStock();
+        } catch (err: any) {
+          toast.error('No se pudo registrar', err.message || 'Error al registrar el medicamento.');
+        } finally { setGuardando(false); }
+      },
+    );
   }
 
   /* Ingresar lote */
-  async function registrarLote(e: React.FormEvent) {
+  function registrarLote(e: React.FormEvent) {
     e.preventDefault();
     if (!fLote.medicamento_id || !fLote.numero_lote || !fLote.cantidad) {
       toast.error('Datos incompletos', 'Medicamento, número de lote y cantidad son obligatorios.'); return;
     }
+    const med = stock.find((m) => m.id === fLote.medicamento_id);
+    confirmar(
+      {
+        title: '¿Ingresar lote?',
+        message: `Se agregarán ${fLote.cantidad} unidad(es) al stock de ${med?.nombre ?? 'el medicamento'} (lote ${fLote.numero_lote.trim().toUpperCase()}).`,
+        confirmLabel: 'Sí, ingresar',
+      },
+      () => ejecutarLote(),
+    );
+  }
+
+  async function ejecutarLote() {
     setRegistrandoLote(true);
     try {
       await api('/api/farmacia/lotes', {
@@ -783,6 +819,8 @@ export default function FarmaciaPage() {
           </div>
         </div>
       )}
+
+      {ConfirmUI}
     </>
   );
 }

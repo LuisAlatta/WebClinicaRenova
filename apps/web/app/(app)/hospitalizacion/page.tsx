@@ -5,6 +5,7 @@ import ConfirmDialog from '../../../components/ConfirmDialog';
 import PageHeader from '../../../components/PageHeader';
 import BuscadorPaciente, { type PacienteLite } from '../../../components/BuscadorPaciente';
 import { useToast } from '../../../components/Toast';
+import { useConfirm } from '../../../components/useConfirm';
 import { getUsuario } from '../../../lib/api';
 
 /* Calcula la edad (en años) a partir de la fecha de nacimiento ISO. */
@@ -249,6 +250,7 @@ export default function HospitalizacionPage() {
   const [confirmarQuitar, setConfirmarQuitar] = useState(false);
 
   const toast = useToast();
+  const { confirmar, ConfirmUI } = useConfirm();
 
   /* HP0010b - Permisos por rol (alineados al backend):
      ingreso -> ADMIN/ASISTENTE; alta y egreso -> ADMIN/MEDICO. */
@@ -450,19 +452,27 @@ export default function HospitalizacionPage() {
   }
 
   /* HP0017 - Registrar ingreso: intenta backend y mantiene demo visual */
-  async function agregarPaciente() {
+  function agregarPaciente() {
     if (!form.dni || !form.nombres || !form.habitacion || !form.cama) {
       toast.error('Datos incompletos', 'Complete DNI, nombres, habitación y cama.');
       return;
     }
-
     const cuartoExiste = cuartos.some((c) => c.cuarto === form.habitacion);
-
     if (!cuartoExiste) {
       toast.error('Habitación inválida', 'La habitación no existe. Agréguela primero en disponibilidad.');
       return;
     }
+    confirmar(
+      {
+        title: '¿Registrar ingreso?',
+        message: `Se registrará el ingreso hospitalario de ${form.nombres} en la habitación ${form.habitacion} (${form.cama}).`,
+        confirmLabel: 'Sí, registrar ingreso',
+      },
+      ejecutarIngreso,
+    );
+  }
 
+  async function ejecutarIngreso() {
     const camaSeleccionada = cuartos.find((c) => c.cuarto === form.habitacion);
     const token = obtenerToken();
 
@@ -1321,6 +1331,8 @@ export default function HospitalizacionPage() {
         onConfirm={quitarCuartoConfirmado}
         onCancel={() => setConfirmarQuitar(false)}
       />
+
+      {ConfirmUI}
     </div>
   );
 }
