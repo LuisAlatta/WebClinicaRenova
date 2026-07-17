@@ -226,10 +226,9 @@ export default function HospitalizacionPage() {
   const [especialidades, setEspecialidades] = useState<any[]>([]);
   const [medicosEsp, setMedicosEsp] = useState<any[]>([]);
 
-  /* HP0008c - Filtro de la tabla por paciente (autocompletado) */
-  const [filtroDni, setFiltroDni] = useState('');
-  const [pacienteFiltro, setPacienteFiltro] = useState('');
-  const [resetBusca, setResetBusca] = useState(0); // remonta el buscador al "Ver todos"
+  /* HP0008c - Filtro en vivo de la tabla (por DNI o nombre) con autocompletado */
+  const [filtroTexto, setFiltroTexto] = useState('');
+  const [buscaAbierto, setBuscaAbierto] = useState(false);
 
   /* HP0009 - Formulario de acciones */
   const [accion, setAccion] = useState({
@@ -800,6 +799,12 @@ export default function HospitalizacionPage() {
     setConfirmarQuitar(false);
   }
 
+  /* Filtro en vivo por DNI o nombre sobre los internamientos cargados. */
+  const q = filtroTexto.trim().toLowerCase();
+  const pacientesFiltrados = q
+    ? pacientes.filter((p) => p.dni.toLowerCase().includes(q) || p.nombres.toLowerCase().includes(q))
+    : pacientes;
+
   return (
     <div style={page}>
       {/* HP0022 - Animaciones */}
@@ -861,21 +866,43 @@ export default function HospitalizacionPage() {
         </span>
       </div>
 
-      {/* HP0023b - Búsqueda de internamiento con autocompletado de paciente + leyenda de estados */}
+      {/* HP0023b - Filtro en vivo (DNI o nombre) con autocompletado + leyenda de estados */}
       <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', flexWrap: 'wrap', marginTop: 16 }}>
-        <div style={{ flex: '0 1 360px', minWidth: 260 }}>
-          <BuscadorPaciente
-            key={`hosp-busca-${resetBusca}`}
-            onSelect={(p) => { setFiltroDni(p.dni); setPacienteFiltro(`${p.nombres} ${p.apellidos}`); cargarInternamientosBackend(p.dni); }}
-            placeholder="Buscar por DNI, C.E. o nombre…"
+        <div style={{ position: 'relative', flex: '0 1 360px', minWidth: 260 }}>
+          <input
+            style={{ ...input, marginBottom: 0 }}
+            placeholder="Buscar por DNI o nombre…"
+            value={filtroTexto}
+            onChange={(e) => { setFiltroTexto(e.target.value); setBuscaAbierto(true); }}
+            onFocus={() => setBuscaAbierto(true)}
+            onBlur={() => setTimeout(() => setBuscaAbierto(false), 150)}
           />
+          {buscaAbierto && filtroTexto.trim() && pacientesFiltrados.length > 0 && (
+            <div style={{
+              position: 'absolute', zIndex: 20, top: '100%', left: 0, right: 0, marginTop: 4,
+              background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 10,
+              boxShadow: 'var(--shadow)', maxHeight: 240, overflowY: 'auto',
+            }}>
+              {pacientesFiltrados.slice(0, 50).map((p) => (
+                <div
+                  key={`sug-${p.id}-${p.serverId || p.dni}`}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => { setFiltroTexto(p.dni); setBuscaAbierto(false); }}
+                  style={{ padding: '.6rem .8rem', cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
+                >
+                  <strong>{p.nombres}</strong>
+                  <span style={{ color: 'var(--muted)', marginLeft: 8, fontSize: '.82rem' }}>DNI: {p.dni}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
-        <button style={refreshButton} onClick={() => { setFiltroDni(''); setPacienteFiltro(''); setResetBusca((k) => k + 1); cargarDatosBackend(); }}>
+        <button style={refreshButton} onClick={() => { setFiltroTexto(''); setBuscaAbierto(false); }}>
           Ver todos
         </button>
-        {pacienteFiltro && (
-          <span style={{ alignSelf: 'center', fontSize: '.82rem', color: 'var(--ok)' }}>
-            Filtrando por: <strong>{pacienteFiltro}</strong>
+        {filtroTexto.trim() && (
+          <span style={{ alignSelf: 'center', fontSize: '.82rem', color: 'var(--muted)' }}>
+            {pacientesFiltrados.length} resultado(s)
           </span>
         )}
       </div>
@@ -910,12 +937,12 @@ export default function HospitalizacionPage() {
             </tr>
           </thead>
           <tbody>
-            {pacientes.length === 0 && (
+            {pacientesFiltrados.length === 0 && (
               <tr><td style={{ ...td, textAlign: 'center', color: 'var(--muted)' }} colSpan={15}>
-                {pacienteFiltro ? `Sin internamientos para ${pacienteFiltro}.` : 'Sin internamientos registrados.'}
+                {filtroTexto.trim() ? `Sin internamientos que coincidan con "${filtroTexto.trim()}".` : 'Sin internamientos registrados.'}
               </td></tr>
             )}
-            {pacientes.map((p) => (
+            {pacientesFiltrados.map((p) => (
               <tr key={`${p.id}-${p.serverId || p.dni}`}>
                 <td style={td}>{p.dni}</td>
                 <td style={td}>{p.nombres}</td>
