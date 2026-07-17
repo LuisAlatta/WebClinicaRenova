@@ -226,8 +226,10 @@ export default function HospitalizacionPage() {
   const [especialidades, setEspecialidades] = useState<any[]>([]);
   const [medicosEsp, setMedicosEsp] = useState<any[]>([]);
 
-  /* HP0008c - Filtro de la tabla por DNI (búsqueda con botón, no listado) */
+  /* HP0008c - Filtro de la tabla por paciente (autocompletado) */
   const [filtroDni, setFiltroDni] = useState('');
+  const [pacienteFiltro, setPacienteFiltro] = useState('');
+  const [resetBusca, setResetBusca] = useState(0); // remonta el buscador al "Ver todos"
 
   /* HP0009 - Formulario de acciones */
   const [accion, setAccion] = useState({
@@ -859,21 +861,23 @@ export default function HospitalizacionPage() {
         </span>
       </div>
 
-      {/* HP0023b - Búsqueda por DNI (con botón, no listado) + leyenda de estados */}
-      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginTop: 16 }}>
-        <input
-          style={{ ...input, marginBottom: 0, maxWidth: 260 }}
-          placeholder="Buscar internamiento por DNI…"
-          value={filtroDni}
-          onChange={(e) => setFiltroDni(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && cargarInternamientosBackend(filtroDni.trim() || undefined)}
-        />
-        <button style={secondaryButton} onClick={() => cargarInternamientosBackend(filtroDni.trim() || undefined)}>
-          Buscar
-        </button>
-        <button style={refreshButton} onClick={() => { setFiltroDni(''); cargarDatosBackend(); }}>
+      {/* HP0023b - Búsqueda de internamiento con autocompletado de paciente + leyenda de estados */}
+      <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start', flexWrap: 'wrap', marginTop: 16 }}>
+        <div style={{ flex: '0 1 360px', minWidth: 260 }}>
+          <BuscadorPaciente
+            key={`hosp-busca-${resetBusca}`}
+            onSelect={(p) => { setFiltroDni(p.dni); setPacienteFiltro(`${p.nombres} ${p.apellidos}`); cargarInternamientosBackend(p.dni); }}
+            placeholder="Buscar por DNI, C.E. o nombre…"
+          />
+        </div>
+        <button style={refreshButton} onClick={() => { setFiltroDni(''); setPacienteFiltro(''); setResetBusca((k) => k + 1); cargarDatosBackend(); }}>
           Ver todos
         </button>
+        {pacienteFiltro && (
+          <span style={{ alignSelf: 'center', fontSize: '.82rem', color: 'var(--ok)' }}>
+            Filtrando por: <strong>{pacienteFiltro}</strong>
+          </span>
+        )}
       </div>
 
       <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 12, fontSize: '.78rem', color: 'var(--muted)' }}>
@@ -906,6 +910,11 @@ export default function HospitalizacionPage() {
             </tr>
           </thead>
           <tbody>
+            {pacientes.length === 0 && (
+              <tr><td style={{ ...td, textAlign: 'center', color: 'var(--muted)' }} colSpan={15}>
+                {pacienteFiltro ? `Sin internamientos para ${pacienteFiltro}.` : 'Sin internamientos registrados.'}
+              </td></tr>
+            )}
             {pacientes.map((p) => (
               <tr key={`${p.id}-${p.serverId || p.dni}`}>
                 <td style={td}>{p.dni}</td>
